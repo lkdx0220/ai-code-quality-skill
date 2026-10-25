@@ -76,9 +76,9 @@ cli.py历史MI-C低危，以及4条Windows STARTUPINFO属性被vulture误判未�
 
 这批是服务实现候选，不是全矩阵验收：
 
-- Linux产品进程组与强杀恢复、Python3.11、Windows文件symlink特权及只读ACL实测。
+- Linux产品进程组与强杀恢复、Windows文件symlink特权及只读ACL实测；Python3.11构建安装和SDK stdio子集已补验，见独立审计记录。
 - 两个真实MCP宿主、长同步调用期限/断开清理、实际outputSchema兼容。
-- wheel/sdist干净安装已在Windows/Python 3.13子集完成；包内容、许可证/依赖发布复验仍待完成。
+- wheel/sdist干净安装已在Windows/Python 3.13与Linux/Python 3.11子集完成；包内容、许可证/依赖发布复验仍待完成。
 - 1000任务/10000游标及连续最大快照压力、SQLite故障/磁盘满/崩溃窗口的全矩阵故障注入。
 - 大型真实仓库端到端、当前规则下物理32k重建；旧清单证据仅历史参考。
 - 正式发布版本/渠道以及本候选的独立审核。

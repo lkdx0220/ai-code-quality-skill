@@ -18,9 +18,9 @@
 
 本节为未发布工作区功能。`cq-mcp` 服务候选已实现九个本地 stdio 工具，
 使用可选 `[mcp]` extra；现有 CLI 仍可直接使用。启动、调用和验收边界见
-[`docs/mcp.md`](docs/mcp.md)。目前已完成 Windows/Python 3.13 的 wheel/sdist 构建、
-缺 extra 边界、全新 venv 安装和官方 SDK stdio 回环；Linux 产品测试、两个真实宿主及
-完整发布验收仍待完成。
+[`docs/mcp.md`](docs/mcp.md)。目前已完成 Windows/Python 3.13 与 Linux/Python 3.11 的
+wheel/sdist 构建、缺 extra 边界、全新 venv 安装和官方 SDK stdio 回环；Claude Code 已
+完成实际宿主子集调用。Linux 进程恢复、VS Code 宿主、长调用/断开和完整发布验收仍待完成。
 
 ```bash
 cq scan --project . --run-id local-review-01 --inputs-timeout-seconds 120 --format json

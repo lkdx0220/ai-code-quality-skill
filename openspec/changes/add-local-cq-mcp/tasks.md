@@ -10,8 +10,8 @@
 - [x] Windows机制原型：先挂起再纳入Job，取消/超时/owner强杀均确认进程句柄退出；非产品恢复逻辑验收。
 - [x] WSL Ubuntu进程组原型：正常取消无运行后代；强杀owner后确有存活后代，随后清理。证明恢复阻断的必要性，未实现恢复守卫。
 - [x] 十万条合成清单流式输出14.2MB、汇总126B；仅验证序列化规模，不替代真实核心枚举/新鲜度计时。
-- [ ] SDK稳定版本/许可证/Python/协议、两个真实客户端及输出限制核查。
-- [ ] Windows suspended-create/Job Object、Linux正常清理和强杀后恢复阻断原型。
+- [ ] SDK稳定版本/许可证/Python/协议、两个真实客户端及输出限制核查；已确认mcp 2.3.0、协议2025-11-25，并通过Claude Code一个真实宿主，VS Code当前Agent通道禁用。
+- [ ] Windows suspended-create/Job Object、Linux正常清理和强杀后恢复阻断原型；Windows产品路径已测，Linux仅完成stdio/基础进程路径，强杀恢复仍待产品验收。
 - [ ] initialize冷启动及异步调度原型；SDK缺extra兼容。
 - [x] 大仓库inputs汇总/流式清单原型：32,000真实文件，9,312,754字节完整清单/743字节摘要，120s配置下逐文件和总摘要均核对通过；不代替产品分页/新鲜度验收。
 - [x] 固定CLI现有行为及来源输入摘要：doctor-before/scan-before与cq-mcp-before-20261025基线已保留，核心修改逐项留痕。
@@ -28,8 +28,8 @@
 - [x] run_header/verdict/comparability、分页/快照/发现/容量首批实现；skipped不能通过、历史/过期/超时、未知版本不可比、大finding/diff及配额反例通过。
 - [x] docs/mcp.md、README与通用启动示例更新；候选声明mcp2.3.0/pywin32 312，无本轮安装。
 - [x] 文档、CLI/Skill回退；README、docs/mcp.md和通用启动示例已更新。
-- [x] 构建安装子集：wheel/sdist构建成功；缺MCP extra时明确exit 2；Windows/Python 3.13全新venv安装wheel[mcp]成功；真实SDK ClientSession stdio九工具回环通过。证据见`audits/cq-mcp-build-20261025-01/build-install-report.md`及服务E2E目录。
-- [ ] 真实宿主验证：Claude Code、VS Code尚未接入并实跑；长gate/diff、宿主期限和断开取消仍待验。
+- [x] 构建安装子集：wheel/sdist构建成功；缺MCP extra时明确exit 2；Windows/Python 3.13和Linux/Python 3.11全新venv安装wheel/sdist并完成SDK ClientSession stdio九工具回环。证据见`audits/cq-mcp-build-20261025-01/build-install-report.md`、`audits/cq-mcp-build-20261025-02/build-package-review.md`及`audits/cq-mcp-host-20261025-01/host-and-linux-validation.md`。
+- [ ] 真实宿主验证：Claude Code已完成doctor/scan实际调用；VS Code当前Agent通道禁用，未记通过；长gate/diff、宿主期限和断开取消仍待验。
 
 ## 3. 验收矩阵
 
