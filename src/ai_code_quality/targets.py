@@ -6,9 +6,12 @@
 from __future__ import annotations
 
 import fnmatch
+import hashlib
 import os
 import re
+import time
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 # 这些目录一定不进扫描目标（venv、缓存、构建产物、audits 自身……）
@@ -83,10 +86,22 @@ def _is_excluded_dir(d: Path) -> bool:
 
 
 def _iter_py_files(
-    root: Path, gi: _Gitignore | None = None, notes: list[str] | None = None
+    root: Path,
+    gi: _Gitignore | None = None,
+    notes: list[str] | None = None,
+    *,
+    deadline: float | None = None,
+    strict: bool = False,
 ) -> list[Path]:
+    from .evidence import check_deadline
+
+    def walk_error(error: OSError) -> None:
+        if strict:
+            raise error
+
     out: list[Path] = []
-    for dirpath, dirnames, filenames in os.walk(root):
+    for dirpath, dirnames, filenames in os.walk(root, onerror=walk_error):
+        check_deadline(deadline)
         d = Path(dirpath)
         dirnames[:] = [
             n
@@ -101,6 +116,93 @@ def _iter_py_files(
                 continue
             out.append(full)
     return sorted(out)
+
+
+INPUT_RULES_VERSION = 2
+MONITORED_CONFIGS = (
+    "cq.toml",
+    ".cq.toml",
+    "pyproject.toml",
+    "setup.cfg",
+    "mypy.ini",
+    ".mypy.ini",
+    ".importlinter",
+    "pytest.ini",
+    "tox.ini",
+    "ruff.toml",
+    ".ruff.toml",
+    ".gitignore",
+    ".cq/suppressions.json",
+)
+
+
+def monitor_inputs(
+    project_root: Path, *, respect_gitignore: bool = True, timeout: float = 60
+) -> dict:
+    """Fingerprint cq's declared monitoring set, not arbitrary tool file access."""
+    from .evidence import EvidenceError, check_deadline, file_digest, inside, object_digest
+    from .redact import REDACTION_RULES_VERSION, redact_text
+
+    if not 0 < timeout <= 600:
+        raise EvidenceError("INVALID_ARGUMENT", "Input deadline must be >0 and <=600 seconds")
+    root = project_root.resolve()
+    if not root.is_dir():
+        raise EvidenceError("INVALID_ARGUMENT", "Project does not exist")
+    deadline = time.monotonic() + timeout
+    try:
+        gi = _Gitignore.load(root) if respect_gitignore else None
+        files = _iter_py_files(root, gi, deadline=deadline, strict=True)
+        entries = []
+        for path in files:
+            check_deadline(deadline)
+            real = inside(path, root)
+            before_stat = real.stat()
+            digest = file_digest(real, deadline)
+            after_stat = real.stat()
+            if (before_stat.st_size, before_stat.st_mtime_ns) != (
+                after_stat.st_size,
+                after_stat.st_mtime_ns,
+            ):
+                raise EvidenceError(
+                    "INPUTS_UNAVAILABLE", "A monitored file changed while being read"
+                )
+            entries.append(
+                {
+                    "path": redact_text(path.relative_to(root).as_posix()),
+                    "path_sha256": hashlib.sha256(
+                        path.relative_to(root).as_posix().encode("utf-8")
+                    ).hexdigest(),
+                    "kind": "test" if _looks_like_test(path) else "source",
+                    "sha256": digest,
+                }
+            )
+        configs = {}
+        for name in MONITORED_CONFIGS:
+            path = inside(root / name, root)
+            configs[name] = (
+                {"sha256": file_digest(path, deadline)} if path.exists() else {"absent": True}
+            )
+        data = {
+            "rules_version": INPUT_RULES_VERSION,
+            "redaction_rules_version": REDACTION_RULES_VERSION,
+            "respect_gitignore": respect_gitignore,
+            "monitor_scope": "Python source/tests and named root configurations; not all analyzer inputs",
+            "files": entries,
+            "config_digests": configs,
+        }
+        data["monitor_digest"] = object_digest(data)
+        data["files_count"] = len(entries)
+        data["checked_at"] = datetime.now().astimezone().isoformat()
+        check_deadline(deadline)
+        return data
+    except (OSError, UnicodeError) as exc:
+        raise EvidenceError(
+            "INPUTS_UNAVAILABLE", "Cannot read or encode a monitored file or directory as UTF-8"
+        ) from exc
+
+
+def inputs_summary(data: dict) -> dict:
+    return {key: value for key, value in data.items() if key != "files"}
 
 
 class _Gitignore:

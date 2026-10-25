@@ -10,11 +10,17 @@
 | Codex | `codex/AGENTS.md.snippet` | ✅ Phase 3 |
 | Claude Code | `claude/CLAUDE.md.snippet` | ✅ Phase 3 |
 | Cursor | `cursor/ai-code-quality.mdc` | ✅ Phase 3 |
-| MCP 宿主 | `cq mcp` 子命令 | ⏳ 可选，未做 |
+| MCP 宿主 | `cq-mcp`（可选 `[mcp]` extra） | 服务候选已实现；双宿主/跨平台发布验收未完成 |
 
 新增一个 Agent = 新增一个 markdown 文件，cq 本体零改动。
 适配文件只允许写"何时调、怎么调、如何汇报"，禁止复制 cq 的实现细节，避免多份说明各自漂移。
 各文件的唯一详细版是 `generic/PROMPT.md`，其余文件只做触发与流程摘要并指向它。
+
+开发中 CLI 扩展见主 README 的“MCP 核心证据扩展”：`scan --run-id`、
+`--inputs-timeout-seconds`，`inputs --summary --timeout-seconds`，以及
+`gate/diff --no-save`。输入清单不是分析器读取全集；选定 adapter 与完成 adapter
+须区分，skipped 不作通过。MCP 启动与九工具调用见 [`docs/mcp.md`](../docs/mcp.md)；
+候选源码入口不代表当前公开安装版本已有该功能，也不代表任何真实宿主已验收。
 
 ## 多 harness 环境的部署（SKILL.md 的安装点）
 

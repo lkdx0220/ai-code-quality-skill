@@ -18,11 +18,24 @@ classifiers = [
 ]
 dependencies = []  # 刻意为空：核心 CLI 只用标准库；外部工具由 subprocess 调用
 
+[project.optional-dependencies]
+mcp = ["mcp==2.3.0", "pywin32==312; sys_platform == 'win32'"]
+
 [project.scripts]
 cq = "ai_code_quality.cli:main"
+cq-mcp = "ai_code_quality.mcp.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ai_code_quality"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/audits",
+  "/archive",
+  "/work",
+  "/outputs",
+  "/openspec/changes/*/reviews/**",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

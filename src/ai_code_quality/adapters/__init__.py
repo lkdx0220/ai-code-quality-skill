@@ -27,8 +27,10 @@ ADAPTER_NAMES = [a.name for a in ALL_ADAPTERS]
 
 
 def get_adapters(enabled: list[str] | None = None) -> list[Adapter]:
-    if not enabled:
+    if enabled is None:
         return list(ALL_ADAPTERS)
+    if not enabled:
+        raise ValueError("显式 adapter 列表不能为空")
     unknown = [n for n in enabled if n not in ADAPTER_NAMES]
     if unknown:
         raise ValueError(f"未知 adapter: {unknown}（可用: {', '.join(ADAPTER_NAMES)}）")

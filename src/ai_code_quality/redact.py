@@ -11,8 +11,24 @@ import re
 from typing import Any
 
 REDACTED = "***REDACTED***"
+REDACTION_RULES_VERSION = 4
+_AUTH_VALUE = re.compile(r"^((?:Bearer|Basic)[ \t]+)[A-Za-z0-9._~+/=-]+$", re.IGNORECASE)
 
 _RULES: list[tuple[re.Pattern[str], str]] = [
+    (
+        re.compile(
+            r"(\b(?:Proxy-)?Authorization\s*:\s*(?:Bearer|Basic)\s+)[A-Za-z0-9._~+/=-]+",
+            re.IGNORECASE,
+        ),
+        r"\1" + REDACTED,
+    ),
+    (
+        re.compile(
+            r"(\bBearer[ \t]+)(?=[A-Za-z0-9._~+/=-]*[0-9_~+/=-])[A-Za-z0-9._~+/=-]{8,}",
+            re.IGNORECASE,
+        ),
+        r"\1" + REDACTED,
+    ),
     # 已知形态的凭据（与 deepsec L1 的密钥规则对齐，阈值放宽以便漏报形态也能被兜住）
     (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), REDACTED),
     (re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{20,}\b"), REDACTED),
@@ -55,9 +71,18 @@ def redact_obj(obj: Any) -> Any:
     if isinstance(obj, str):
         return redact_text(obj)
     if isinstance(obj, dict):
-        return {
-            redact_text(str(k)) if isinstance(k, str) else k: redact_obj(v) for k, v in obj.items()
-        }
+        result = {}
+        for key, value in obj.items():
+            safe_key = redact_text(key) if isinstance(key, str) else key
+            if (
+                isinstance(key, str)
+                and key.casefold() in ("authorization", "proxy-authorization")
+                and isinstance(value, str)
+            ):
+                result[safe_key] = _AUTH_VALUE.sub(r"\1" + REDACTED, redact_text(value))
+            else:
+                result[safe_key] = redact_obj(value)
+        return result
     if isinstance(obj, list):
         return [redact_obj(v) for v in obj]
     return obj

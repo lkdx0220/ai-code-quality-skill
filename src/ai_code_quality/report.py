@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from .diff import DiffResult
 from .redact import redact_text
 from .schema import Finding
 
@@ -202,4 +205,26 @@ def build_console_output(summary: dict, findings: list[Finding]) -> str:
     lines.append(f"  共 {totals.get('findings', 0)} findings  [{sev_str}]")
     lines.append("")
     lines.append(f"  报告：{summary['project_root']}/audits/{summary['run_id']}/report.md")
-    return "\n".join(lines)
+    return redact_text("\n".join(lines))
+
+
+def build_diff_console(
+    run_id: str, base_ref: str, base_run_id: str, result: DiffResult, out_path: Path | None
+) -> str:
+    counts = result.summary_counts()
+    lines = [f"diff · {run_id} vs {base_ref}（{base_run_id}）", ""]
+    lines.append(
+        f"  新增 {counts['new']}（其中 blocker/high {len(result.new_blocker_high)}）· "
+        f"已修复 {counts['fixed']} · 仍存在 {counts['existing']}"
+        f"（行号漂移 {counts['moved']}）· 豁免 {counts['suppressed']}"
+    )
+    for symbol, group in (("+", result.new), ("-", result.fixed)):
+        for f in group[:20]:
+            lines.append(
+                f"  {symbol} [{f.get('severity')}] {f.get('source')}:{f.get('rule')} "
+                f"{f.get('file')}:{f.get('line')} {f.get('message')}"
+            )
+    lines.append("")
+    if out_path:
+        lines.append(f"  产物：{out_path}")
+    return redact_text("\n".join(lines))

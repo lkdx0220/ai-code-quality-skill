@@ -1,0 +1,113 @@
+{
+  "schema_version": "1.0",
+  "change_id": "add-local-cq-mcp",
+  "status": "draft_spec_only",
+  "recorded_at_utc": "2026-10-25T02:44:29.4599186Z",
+  "document_date": "2026-10-25",
+  "document_timezone": "Asia/Shanghai",
+  "primary_root": "C:\\Users\\24701\\Desktop\\skills开发\\ai-code-quality",
+  "primary_head": "252ec3cf5bd3ca3024ab8dc0ee7111f6573ccad7",
+  "primary_initial_git_status": "clean",
+  "reference_root": "C:\\Users\\24701\\Desktop\\skills开发\\dsh-ai-code-quality-lab",
+  "reference_git_status": "not_a_git_repository",
+  "existing_openspec": false,
+  "existing_specdrift_config": false,
+  "note": "Local observed baseline for this proposal, not an externally approved pin. No historical Genshin governance imported.",
+  "inputs": [
+    {
+      "origin": "primary",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\ai-code-quality\\README.md",
+      "sha256": "038ce4428980eee1fba0c0f76893ece86431ab234c9cc7f10e361fdabd5aeb14"
+    },
+    {
+      "origin": "primary",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\ai-code-quality\\pyproject.toml",
+      "sha256": "630d2e4647cf12eff5f2e83392a497d4a665e7bd6c691c6f92541bed5b603906"
+    },
+    {
+      "origin": "primary",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\ai-code-quality\\.gitignore",
+      "sha256": "1773ec04c0e7b36254042329cd84c8a86d83ea3dee22e17bae3bf67972ae694d"
+    },
+    {
+      "origin": "primary",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\ai-code-quality\\.github\\workflows\\ci.yml",
+      "sha256": "fad54ad916037cea0d0e6f47bdb2dd60a97b93f055b30c8fab97b48ff018729b"
+    },
+    {
+      "origin": "primary",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\ai-code-quality\\src\\ai_code_quality\\__init__.py",
+      "sha256": "b5814ced3e6146757c4b00e1e5108471fc80c833c1a8786cf91840d10223e3c4"
+    },
+    {
+      "origin": "primary",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\ai-code-quality\\src\\ai_code_quality\\cli.py",
+      "sha256": "628f2ed025cececd38d7c3de24d469d7bafafca2f07c79e5fce68897ab6e196f"
+    },
+    {
+      "origin": "primary",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\ai-code-quality\\src\\ai_code_quality\\scan.py",
+      "sha256": "deb90ae4c53a4abdfa34cd1d4f9f70246477607fce165ad4be5a5b1132cacf47"
+    },
+    {
+      "origin": "primary",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\ai-code-quality\\src\\ai_code_quality\\runs.py",
+      "sha256": "d0eaaa5824e88db566dce1b6352e09a5f1e8879463551b75e62fc4f9b97bee0f"
+    },
+    {
+      "origin": "primary",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\ai-code-quality\\src\\ai_code_quality\\config.py",
+      "sha256": "2da382b6d6d6f11913415a6f873d5943066b4d1398e8ea3c55c36cb8a4b29346"
+    },
+    {
+      "origin": "primary",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\ai-code-quality\\src\\ai_code_quality\\gate.py",
+      "sha256": "ed45cbf4f53a1fe118ab5eae171d3a33e8e0444ce81132b2589353e331d4ccd3"
+    },
+    {
+      "origin": "primary",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\ai-code-quality\\src\\ai_code_quality\\baseline.py",
+      "sha256": "cd3104301677375ef89d060fb6dc417ed9eb8c47e7a7af0fcbef1e09de9b4c4f"
+    },
+    {
+      "origin": "primary",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\ai-code-quality\\src\\ai_code_quality\\adapters\\__init__.py",
+      "sha256": "196dfbcd93c73dca36b906d9c94e225396627d09973a0250ebc6eb9fc1866014"
+    },
+    {
+      "origin": "primary",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\ai-code-quality\\src\\ai_code_quality\\schema.py",
+      "sha256": "78f38011830baaac70f71032c11882f21a33035791492a9e48876ca417c4dfb8"
+    },
+    {
+      "origin": "primary",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\ai-code-quality\\agent-adapters\\README.md",
+      "sha256": "db82ff8a9b2df536f345f6dc1daad8ce6168bfe4406dc3dc7184110fb7847463"
+    },
+    {
+      "origin": "reference_only",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\dsh-ai-code-quality-lab\\dsh-plugin\\README.md",
+      "sha256": "484d66dcbbc04721e4f12452fb8f5098e20986691616a7e26fe54f64dbe97010"
+    },
+    {
+      "origin": "reference_only",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\dsh-ai-code-quality-lab\\dsh-plugin\\package.json",
+      "sha256": "ccaf3c5391015d78403e00b46e9ec9eb23983f4382c8fb1b19c39f3c38025cb4"
+    },
+    {
+      "origin": "reference_only",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\dsh-ai-code-quality-lab\\dsh-plugin\\index.js",
+      "sha256": "38b91e7adac111fb82b3a104e58849005e6654952fb7104d39e0513f36e2b4b7"
+    },
+    {
+      "origin": "reference_only",
+      "path": "C:\\Users\\24701\\Desktop\\skills开发\\dsh-ai-code-quality-lab\\dsh-plugin\\lib\\cq.js",
+      "sha256": "940e969a9845346b8438406e2e6e8c9eef9a242c5c8e5eb905cda266f14a7ecb"
+    },
+    {
+      "origin": "workflow_reference",
+      "path": "C:\\Users\\24701\\.codex\\skills\\ai-code-quality\\SKILL.md",
+      "sha256": "8371f69cdcf5049e58356e9993991c8fa1eeab05e46fbef631791f78a3cfa9ad"
+    }
+  ]
+}

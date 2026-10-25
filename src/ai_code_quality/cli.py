@@ -61,6 +61,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--deepsec-python", default=None, help="承载 deepsec 的 Python 解释器（默认同 --python）"
     )
     p_scan.add_argument("--no-deepsec", action="store_true", help="跳过 deepsec 安全扫描")
+    p_scan.add_argument("--run-id", default=None, help="显式独占 run ID（碰撞 exit 3）")
+    p_scan.add_argument(
+        "--inputs-timeout-seconds", type=float, default=60, help="每阶段输入监视期限（>0..600秒）"
+    )
+
+    p_inputs = sub.add_parser("inputs", help="输入监视清单（不执行分析器）")
+    p_inputs.add_argument("--project", default=".")
+    p_inputs.add_argument("--format", choices=["json"], default="json")
+    p_inputs.add_argument("--summary", action="store_true", help="仅返回完整清单摘要和计数")
+    p_inputs.add_argument("--timeout-seconds", type=float, default=60)
 
     p_doc = sub.add_parser("doctor", help="环境体检：探测 8 个外部工具，缺什么给什么安装命令")
     p_doc.add_argument(
@@ -90,6 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_run_ref_arg(p_diff)
     p_diff.add_argument("--baseline", required=True, help="基线名或另一次 run 的 id/前缀")
     p_diff.add_argument("--format", choices=["md", "json"], default="md")
+    p_diff.add_argument("--no-save", action="store_true", help="只输出结果，不写 diff.json")
 
     p_gate = sub.add_parser(
         "gate", help="质量门验收。退出码：0 达标 / 1 未达标 / 2 工具执行错误 / 3 配置错误"
@@ -105,6 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="A：0 blocker/0 high；B：0 blocker/≤2 high",
     )
     p_gate.add_argument("--format", choices=["md", "json"], default="md")
+    p_gate.add_argument("--no-save", action="store_true", help="只输出结果，不写 gate.json")
 
     p_sup = sub.add_parser(
         "suppress",
@@ -232,6 +244,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if args.command == "doctor":
         return _run_doctor_command(args)
+    if args.command == "inputs":
+        return _run_inputs_command(args)
     if args.command == "triage":
         return _run_triage_command(args)
     if args.command == "baseline":
@@ -515,7 +529,9 @@ def _load_run_or_error(project: Path, run_ref: str):
     try:
         return load_run(project, run_ref)
     except LookupError as e:
-        print(f"错误：{e}", file=sys.stderr)
+        from .redact import redact_text
+
+        print(f"错误：{redact_text(str(e))}", file=sys.stderr)
         return None
 
 
@@ -529,24 +545,26 @@ def _run_triage_command(args: argparse.Namespace) -> int:
     try:
         code, text = run_triage(project, args.run, fmt=args.format)
     except LookupError as e:
-        print(f"错误：{e}", file=sys.stderr)
-        return 3
+        return _command_error(args, getattr(e, "code", "RUN_NOT_FOUND"), str(e), 3)
     print(text)
     return code
 
 
 def _run_baseline_command(args: argparse.Namespace) -> int:
     from .baseline import save_baseline
+    from .redact import redact_text
 
     project = Path(args.project)
     try:
         path, run = save_baseline(project, args.run, args.name)
     except (LookupError, ValueError) as e:
-        print(f"错误：{e}", file=sys.stderr)
-        return 3
+        code = getattr(e, "code", "INVALID_ARGUMENT")
+        return _command_error(args, code, str(e), 4 if code == "IO_ERROR" else 3)
+    except OSError as e:
+        return _command_error(args, "IO_ERROR", str(e), 4)
     total = len(run.findings)
-    print(f"基线已保存：{path}")
-    print(f"  来源 run：{run.run_id}（{total} 条 findings）")
+    print(redact_text(f"基线已保存：{path}"))
+    print(redact_text(f"  来源 run：{run.run_id}（{total} 条 findings）"))
     print(
         f"  后续用法：cq diff --run <新run> --baseline {args.name} / cq gate --run <新run> --baseline {args.name}"
     )
@@ -558,57 +576,62 @@ def _run_diff_command(args: argparse.Namespace) -> int:
 
     from .baseline import load_baseline
     from .diff import diff_findings
+    from .redact import redact_obj
+    from .report import build_diff_console
 
     project = Path(args.project)
-    run = _load_run_or_error(project, args.run)
-    if run is None:
-        return 3
+    from .runs import load_run
+
     try:
+        run = load_run(project, args.run)
         base_ref, base = load_baseline(project, args.baseline)
     except (LookupError, ValueError) as e:
-        print(f"错误：{e}", file=sys.stderr)
-        return 3
+        code = getattr(e, "code", "RUN_NOT_FOUND")
+        return _command_error(args, code, str(e), 4 if code == "IO_ERROR" else 3)
+    except OSError as e:
+        return _command_error(args, "IO_ERROR", str(e), 4)
 
     result = diff_findings(base.findings, run.findings)
-    payload = {
-        "run_id": run.run_id,
-        "baseline": base_ref,
-        "baseline_run": base.run_id,
-        **result.summary_counts(),
-        "new_details": [
-            {k: f.get(k) for k in ("id", "severity", "source", "rule", "file", "line", "message")}
-            for f in result.new
-        ],
-        "fixed_details": [
-            {k: f.get(k) for k in ("id", "severity", "source", "rule", "file", "line", "message")}
-            for f in result.fixed
-        ],
-        "moved": result.moved,
-    }
+    payload = redact_obj(
+        {
+            "run_id": run.run_id,
+            "baseline": base_ref,
+            "baseline_run": base.run_id,
+            **result.summary_counts(),
+            "new_details": [
+                {
+                    k: f.get(k)
+                    for k in ("id", "severity", "source", "rule", "file", "line", "message")
+                }
+                for f in result.new
+            ],
+            "fixed_details": [
+                {
+                    k: f.get(k)
+                    for k in ("id", "severity", "source", "rule", "file", "line", "message")
+                }
+                for f in result.fixed
+            ],
+            "moved": result.moved,
+        }
+    )
     out_path = run.run_dir / "diff.json"
-    out_path.write_text(_json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    if not args.no_save:
+        try:
+            from .evidence import atomic_json
+
+            atomic_json(out_path, payload)
+        except OSError as exc:
+            return _command_error(args, "IO_ERROR", str(exc), 4)
 
     if args.format == "json":
         print(_json.dumps(payload, ensure_ascii=False, indent=2))
     else:
-        counts = result.summary_counts()
-        print(f"diff · {run.run_id} vs {base_ref}（{base.run_id}）")
-        print()
         print(
-            f"  新增 {counts['new']}（其中 blocker/high {len(result.new_blocker_high)}）· "
-            f"已修复 {counts['fixed']} · 仍存在 {counts['existing']}"
-            f"（行号漂移 {counts['moved']}）· 豁免 {counts['suppressed']}"
+            build_diff_console(
+                run.run_id, base_ref, base.run_id, result, out_path if not args.no_save else None
+            )
         )
-        for f in result.new[:20]:
-            print(
-                f"  + [{f.get('severity')}] {f.get('source')}:{f.get('rule')} {f.get('file')}:{f.get('line')} {f.get('message')}"
-            )
-        for f in result.fixed[:20]:
-            print(
-                f"  - [{f.get('severity')}] {f.get('source')}:{f.get('rule')} {f.get('file')}:{f.get('line')} {f.get('message')}"
-            )
-        print()
-        print(f"  产物：{out_path}")
     # 1 = 有新增 blocker/high（与 gate 语义一致），供脚本直接判断
     return 1 if result.new_blocker_high else 0
 
@@ -617,30 +640,38 @@ def _run_gate_command(args: argparse.Namespace) -> int:
     import json as _json
 
     from .gate import render_console, run_gate
+    from .redact import redact_obj, redact_text
 
     project = Path(args.project)
     try:
-        report = run_gate(project, args.run, baseline_ref=args.baseline, target=args.target)
-    except LookupError as e:
-        print(f"错误：{e}", file=sys.stderr)
-        return 3
-    except ValueError as e:
-        print(f"错误：{e}", file=sys.stderr)
-        return 3
+        from .runs import load_run
 
-    out_path = _load_run_or_error(project, args.run)
-    gate_path = out_path.run_dir / "gate.json" if out_path else None
-    if gate_path:
-        gate_path.write_text(
-            _json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
+        report = run_gate(project, args.run, baseline_ref=args.baseline, target=args.target)
+        out_path = load_run(project, args.run) if not args.no_save else None
+    except (LookupError, ValueError) as e:
+        code = getattr(
+            e, "code", "RUN_NOT_FOUND" if isinstance(e, LookupError) else "INVALID_ARGUMENT"
         )
+        return _command_error(args, code, str(e), 4 if code == "IO_ERROR" else 3)
+    except OSError as e:
+        return _command_error(args, "IO_ERROR", str(e), 4)
+
+    gate_path = out_path.run_dir / "gate.json" if out_path else None
+    payload = redact_obj(report.to_dict())
+    if gate_path:
+        try:
+            from .evidence import atomic_json
+
+            atomic_json(gate_path, payload)
+        except OSError as exc:
+            return _command_error(args, "IO_ERROR", str(exc), 4)
 
     if args.format == "json":
-        print(_json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+        print(_json.dumps(payload, ensure_ascii=False, indent=2))
     else:
         print(render_console(report))
         if gate_path:
-            print(f"\n  产物：{gate_path}")
+            print(redact_text(f"\n  产物：{gate_path}"))
     return report.exit_code
 
 
@@ -710,7 +741,7 @@ def _run_doctor_command(args: argparse.Namespace) -> int:
         overrides["deepsec_python"] = args.deepsec_python
     cfg = Config.load(Path("."), cli_overrides=overrides)
     checks, python_note = run_doctor(cfg)
-    summary = doctor_summary(checks)
+    summary = doctor_summary(checks, python_source=cfg.python_source)
     summary["cq_version"] = __version__
     summary["python"] = cfg.python
     if python_note:
@@ -746,20 +777,74 @@ def _run_scan_command(args: argparse.Namespace) -> int:
     if args.no_deepsec:
         overrides["no_deepsec"] = True
 
-    enabled = [a.strip() for a in args.adapters.split(",") if a.strip()] if args.adapters else None
+    enabled = (
+        [a.strip() for a in args.adapters.split(",") if a.strip()]
+        if args.adapters is not None
+        else None
+    )
+    if enabled == []:
+        return _command_error(args, "INVALID_ARGUMENT", "显式 adapter 列表不能为空", 3)
 
     cfg = Config.load(project, cli_overrides=overrides)
     try:
-        out = run_scan(project, scope=args.scope, cfg=cfg, enabled_adapters=enabled)
-    except (FileNotFoundError, ValueError) as e:
-        print(f"错误：{e}", file=sys.stderr)
-        return 1
+        out = run_scan(
+            project,
+            scope=args.scope,
+            cfg=cfg,
+            enabled_adapters=enabled,
+            run_id=args.run_id,
+            inputs_timeout_seconds=args.inputs_timeout_seconds,
+        )
+    except FileNotFoundError as e:
+        return _command_error(args, "INVALID_ARGUMENT", str(e), 1)
+    except OSError as e:
+        return _command_error(args, "IO_ERROR", str(e), 4)
+    except ValueError as e:
+        code = getattr(e, "code", "INVALID_ARGUMENT")
+        exit_code = (
+            2
+            if code in ("INPUTS_TIMEOUT", "INPUTS_UNAVAILABLE")
+            else (3 if hasattr(e, "code") else 1)
+        )
+        return _command_error(args, code, str(e), exit_code)
 
     if args.format == "json":
-        print(json.dumps(out.summary, ensure_ascii=False, indent=2))
+        from .redact import redact_obj
+
+        print(json.dumps(redact_obj(out.summary), ensure_ascii=False, indent=2))
     else:
         _print_scan_console(out)
     return out.exit_code
+
+
+def _command_error(args: argparse.Namespace, code: str, message: str, exit_code: int) -> int:
+    from .redact import redact_text
+
+    message = redact_text(message)
+    if getattr(args, "format", None) == "json":
+        print(json.dumps({"error": {"code": code, "message": message}}, ensure_ascii=False))
+    else:
+        print(f"错误：{message}", file=sys.stderr)
+    return exit_code
+
+
+def _run_inputs_command(args: argparse.Namespace) -> int:
+    from .config import Config
+    from .evidence import EvidenceError
+    from .targets import inputs_summary, monitor_inputs
+
+    try:
+        root = Path(args.project)
+        cfg = Config.load(root)
+        data = monitor_inputs(
+            root, respect_gitignore=cfg.respect_gitignore, timeout=args.timeout_seconds
+        )
+        print(json.dumps(inputs_summary(data) if args.summary else data, ensure_ascii=False))
+        return 0
+    except EvidenceError as exc:
+        return _command_error(args, exc.code, str(exc), 2 if exc.code.startswith("INPUTS_") else 3)
+    except OSError as exc:
+        return _command_error(args, "IO_ERROR", str(exc), 4)
 
 
 def _print_scan_console(out: ScanOutput) -> None:

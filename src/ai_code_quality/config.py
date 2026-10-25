@@ -74,9 +74,10 @@ class Config:
                     if isinstance(tool_section, dict):
                         cfg = _apply(cfg, tool_section)
                     # 顶层键也接受（tool. 前缀省略的写法）
-                    before = cfg.python
                     cfg = _apply(cfg, {k: v for k, v in data.items() if k != "tool"})
-                    if cfg.python != before:
+                    if data.get("python") or (
+                        isinstance(tool_section, dict) and tool_section.get("python")
+                    ):
                         cfg.python_source = "config"
                 break
         # 2) 环境变量
@@ -92,15 +93,13 @@ class Config:
                 env["timeout_default"] = int(os.environ[ENV_KEYS["timeout"]])
             except ValueError:
                 pass
-        before = cfg.python
         cfg = _apply(cfg, env)
-        if cfg.python != before:
+        if "python" in env:
             cfg.python_source = "env"
         # 3) CLI 参数（最高优先级）
         if cli_overrides:
-            before = cfg.python
             cfg = _apply(cfg, cli_overrides)
-            if cfg.python != before:
+            if cli_overrides.get("python"):
                 cfg.python_source = "cli"
         return cfg
 
@@ -116,6 +115,9 @@ class Config:
             "vulture_min_confidence": self.vulture_min_confidence,
             "max_cc_rank": self.max_cc_rank,
             "min_mi_rank": self.min_mi_rank,
+            "enabled_adapters": self.enabled_adapters,
+            "no_deepsec": self.no_deepsec,
+            "respect_gitignore": self.respect_gitignore,
         }
 
 

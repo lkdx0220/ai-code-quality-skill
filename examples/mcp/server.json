@@ -1,0 +1,8 @@
+{
+  "command": "/absolute/mcp-venv/bin/cq-mcp",
+  "args": [
+    "--project", "/absolute/trusted-project",
+    "--state-dir", "/absolute/cq-state",
+    "--tool-python", "/absolute/tool-venv/bin/python"
+  ]
+}

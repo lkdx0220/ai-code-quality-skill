@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import json
 import platform
 import sys
 import time
@@ -19,11 +18,21 @@ from pathlib import Path
 
 from . import __version__
 from .adapters import get_adapters
-from .adapters.base import ScanContext
+from .adapters.base import Adapter, ScanContext
 from .config import Config
-from .redact import redact_obj
+from .evidence import (
+    ARTIFACT_SCHEMA_VERSION,
+    EvidenceError,
+    atomic_json,
+    atomic_text,
+    inside,
+    publish_run,
+    sync_file,
+    validate_id,
+)
+from .redact import REDACTION_RULES_VERSION, redact_obj
 from .schema import AdapterResult, Finding, sort_findings
-from .targets import ScanTargets, get_git_info, resolve_targets
+from .targets import ScanTargets, get_git_info, inputs_summary, monitor_inputs, resolve_targets
 
 
 @dataclass
@@ -42,26 +51,41 @@ def run_scan(
     scope: str = "full",
     cfg: Config,
     enabled_adapters: list[str] | None = None,
+    run_id: str | None = None,
+    inputs_timeout_seconds: float = 60,
 ) -> ScanOutput:
     root = project_root.resolve()
     if not root.is_dir():
         raise FileNotFoundError(f"项目目录不存在: {root}")
 
-    # astimezone() = 带时区的本地时间（DTZ005）：run_id 保持本地可读，created_at 带 offset 无歧义
+    if scope not in ("full", "changed"):
+        raise EvidenceError("INVALID_ARGUMENT", "scope must be full or changed")
+    if not 0 < inputs_timeout_seconds <= 600:
+        raise EvidenceError("INVALID_ARGUMENT", "Input deadline must be >0 and <=600 seconds")
+    cfg.enabled_adapters = (
+        enabled_adapters if enabled_adapters is not None else cfg.enabled_adapters
+    )
+    if cfg.enabled_adapters == []:
+        raise EvidenceError("INVALID_ARGUMENT", "显式 adapter 列表不能为空")
+    adapters = get_adapters(cfg.enabled_adapters)
+    # Validate everything before creating an output directory.
     now = datetime.now().astimezone()
-    run_id = f"{now:%Y%m%d-%H%M%S}-{scope}"
-    run_dir = root / "audits" / run_id
+    run_id = validate_id(run_id if run_id is not None else f"{now:%Y%m%d-%H%M%S}-{scope}")
+    audit_root = inside(root / "audits", root)
+    audit_root.mkdir(exist_ok=True)
+    run_dir = inside(audit_root / run_id, audit_root)
+    try:
+        run_dir.mkdir(exist_ok=False)
+    except FileExistsError as exc:
+        raise EvidenceError("RUN_COLLISION", f"Run already exists: {run_id}") from exc
     raw_dir = run_dir / "raw"
-    raw_dir.mkdir(parents=True, exist_ok=True)
+    raw_dir.mkdir()
 
+    before = monitor_inputs(
+        root, respect_gitignore=cfg.respect_gitignore, timeout=inputs_timeout_seconds
+    )
     git_info = get_git_info(root)
     targets, ctx = _build_context(root, run_dir, raw_dir, run_id, scope, cfg, git_info)
-    cfg.enabled_adapters = enabled_adapters or cfg.enabled_adapters
-
-    try:
-        adapters = get_adapters(cfg.enabled_adapters)
-    except ValueError as e:
-        raise ValueError(str(e)) from e
 
     results = [adapter.safe_run(ctx) for adapter in adapters]
 
@@ -71,9 +95,33 @@ def run_scan(
     _apply_suppressions(root, findings)
 
     summary = _build_summary(run_id, root, scope, cfg, git_info, targets, results, findings)
+    after = monitor_inputs(
+        root, respect_gitignore=cfg.respect_gitignore, timeout=inputs_timeout_seconds
+    )
+    consistency = (
+        "consistent" if before["monitor_digest"] == after["monitor_digest"] else "unstable"
+    )
+    summary.update(
+        {
+            "artifact_schema_version": ARTIFACT_SCHEMA_VERSION,
+            **_adapter_summary(adapters, results),
+            "scan_consistency": consistency,
+            "inputs": {"before": inputs_summary(before), "after": inputs_summary(after)},
+            "tool_timeouts": {adapter.name: cfg.timeout_for(adapter.name) for adapter in adapters},
+            "inputs_timeout_seconds": inputs_timeout_seconds,
+        }
+    )
+    summary["artifacts"]["inputs"] = "inputs.json"  # type: ignore[index]
 
-    # ---- 落盘（全部经 redact） ----
+    atomic_json(
+        run_dir / "inputs.json", {"before": before, "after": after, "scan_consistency": consistency}
+    )
+    coverage = inside(raw_dir / "coverage.json", run_dir)
+    if coverage.is_file():
+        # Preserve the adapter's final sanitized bytes at the publication boundary.
+        sync_file(coverage)
     _write_artifacts(run_dir, run_id, summary, findings)
+    publish_run(run_dir, run_id, __version__)
 
     exit_code = 2 if any(r.status in ("error", "timeout") for r in results) else 0
     return ScanOutput(
@@ -84,6 +132,17 @@ def run_scan(
         results=results,
         exit_code=exit_code,
     )
+
+
+def _adapter_summary(adapters: list[Adapter], results: list[AdapterResult]) -> dict[str, list[str]]:
+    selected = [adapter.name for adapter in adapters]
+    return {
+        "effective_adapters": selected,
+        "selected_adapters": selected,
+        "attempted_adapters": [r.name for r in results if r.status != "skipped"],
+        "completed_adapters": [r.name for r in results if r.status == "ok"],
+        "skipped_adapters": [r.name for r in results if r.status == "skipped"],
+    }
 
 
 def _build_context(
@@ -158,20 +217,14 @@ def _find_suppression(item, entries, ids, signatures, suppress_mod):
 def _write_artifacts(
     run_dir: Path, run_id: str, summary: dict[str, object], findings: list[Finding]
 ) -> None:
-    (run_dir / "summary.json").write_text(
-        json.dumps(redact_obj(summary), ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    (run_dir / "findings.json").write_text(
-        json.dumps(
-            redact_obj({"run_id": run_id, "findings": [f.to_dict() for f in findings]}),
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
+    atomic_json(run_dir / "summary.json", redact_obj(summary))
+    atomic_json(
+        run_dir / "findings.json",
+        redact_obj({"run_id": run_id, "findings": [f.to_dict() for f in findings]}),
     )
     from .report import build_report_md
 
-    (run_dir / "report.md").write_text(build_report_md(summary, findings), encoding="utf-8")
+    atomic_text(run_dir / "report.md", [build_report_md(summary, findings)])
 
 
 def _build_summary(
@@ -200,6 +253,7 @@ def _build_summary(
         "run_id": run_id,
         "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "cq_version": __version__,
+        "redaction_rules_version": REDACTION_RULES_VERSION,
         "project_root": str(root),
         "scope": scope,
         "scanned_targets": [str(t) for t in targets.targets],

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import cast
 
 from .diff import DiffResult, diff_findings
+from .redact import redact_text
 from .runs import RunData, load_run
 
 TARGETS = ("A", "B")
@@ -99,6 +100,15 @@ def _coverage_percent(run: RunData) -> float | None:
         return None
 
 
+def _tool_completion_detail(tools: list[object]) -> str:
+    ok_count = sum(isinstance(t, dict) and t.get("status") == "ok" for t in tools)
+    skipped_count = sum(isinstance(t, dict) and t.get("status") == "skipped" for t in tools)
+    return (
+        f"{len(tools)} 个工具：ok {ok_count}，skipped {skipped_count}"
+        + "（skipped 不代表通过；本项仅检查 error/timeout）"
+    )
+
+
 def run_gate(
     project_root: Path,
     run_ref: str,
@@ -128,7 +138,7 @@ def run_gate(
         ]
         checks.append(GateCheck("tools_ok", False, f"工具执行不完整: {', '.join(bad)}"))
         return _finish(run, target, checks, ratings={}, diff=None, exit_code=2)
-    checks.append(GateCheck("tools_ok", True, f"{len(tools)} 个工具全部正常完成"))
+    checks.append(GateCheck("tools_ok", True, _tool_completion_detail(tools)))
 
     # 1) blocker / high 上限
     by_sev: dict[str, int] = {}
@@ -269,4 +279,4 @@ def render_console(report: GateReport) -> str:
         lines.append("下一步最有效的 3 件事：")
         for s in report.next_steps:
             lines.append(f"  - {s}")
-    return "\n".join(lines)
+    return redact_text("\n".join(lines))

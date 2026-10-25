@@ -14,6 +14,54 @@
 > **默认关闭**：项目根放 `.specdrift.toml` 才启用，未配置的仓库行为逐项不变（CI 专项回归锁死）。
 > 👉 详见下方 [spec-drift 章节](#spec-driftv020--可选spec-驱动项目的防漂移门)。
 
+## MCP 核心证据扩展（开发中）
+
+本节为未发布工作区功能。`cq-mcp` 服务候选已实现九个本地 stdio 工具，
+使用可选 `[mcp]` extra；现有 CLI 仍可直接使用。启动、调用和验收边界见
+[`docs/mcp.md`](docs/mcp.md)。目前已完成 Windows/Python 3.13 的 wheel/sdist 构建、
+缺 extra 边界、全新 venv 安装和官方 SDK stdio 回环；Linux 产品测试、两个真实宿主及
+完整发布验收仍待完成。
+
+```bash
+cq scan --project . --run-id local-review-01 --inputs-timeout-seconds 120 --format json
+cq inputs --project . --summary --timeout-seconds 120
+cq gate --project . --run local-review-01 --no-save --format json
+cq diff --project . --run local-review-01 --baseline baseline --no-save --format json
+```
+
+`--run-id` 独占创建，已存在报 RUN_COLLISION，不覆盖；ID/读取前缀仅允许单级字母数字、
+下划线与连字符（不含设备名）。显式空 adapter 列表拒绝；省略保留 CLI 旧默认。
+`inputs` 不执行分析器；默认逐文件完整清单，`--summary` 只回规则/范围/计数/摘要。
+监视期限默认每阶段 60 秒，可调 >0..600 秒；超时不发布完成标记。
+
+新 run 最后写 `.complete.json`，校验五类发布依赖（coverage 可 absent）；该标记证明
+发布完整性，不是质量通过或密码学签名。旧合法 run 可读；修改版本字段不能绕过新格式验证。
+run 与依赖的真实路径须留在项目 audits 内；项目外源文件链接会使监视明确失败。
+此监视集合采用根 `.gitignore` 子集，不等于分析器实际读取全集，也不是原子工作区快照。
+具名基线读写也检查真实归属；形状/编码损坏报 INVALID_ARTIFACT。基线名采用相同的
+单级 ID 限制。不能编码为 UTF-8 的文件名报 INPUTS_UNAVAILABLE/exit 2；失败 run
+可保留空目录用于定位，但不发布完成标记，也不复用该 ID。
+
+输入规则 v2 的 `path` 是已知规则脱敏后的展示路径，`path_sha256` 保留原始相对路径身份，
+`sha256` 是文件原字节摘要；脱敏后同名的两个文件不合并。规范结构先脱敏再计算
+`monitor_digest`，复算时排除 `monitor_digest/files_count/checked_at` 三项。
+`redaction_rules_version` 纳入摘要；规则版本不同不可直接比较。未知秘密不保证全部检出。
+
+summary 中 `selected_adapters` 是选定范围，`attempted_adapters` 排除 skipped，
+`completed_adapters` 只含 ok；`effective_adapters` 保留为 selected 的兼容别名。
+选中但跳过不等于通过。`inputs_timeout_seconds` 记录各监视阶段期限。
+
+`--no-save` 不写历史 run 的 gate/diff；默认仍保存，但文件改为紧凑排序键 LF JSON。
+新增 IO_ERROR 使用 exit 4；质量未达标仍为 exit 1。coverage 适配器会做文本转换及脱敏，
+发布阶段只保留适配器最终处理后的字节并 fsync，不承诺与分析器原始字节一致。
+原子临时输出在 POSIX 默认 0600；不承诺目录 fsync 或断电事务。
+scan 控制台和 gate/diff 输出、保存投影（包括旧 run）应用当前脱敏规则；不会改写旧输入。
+独立 Bearer 仅匹配至少 8 字符且含数字或指定 token 符号的值；Authorization/Basic/Bearer
+明确头上下文另行匹配。纯字母独立 token 等未知形态仍可能漏检。
+核心 gate 的 tools_ok 仅检查 error/timeout；skipped 计数已单列，核心 exit 0
+不等于所有维度通过。MCP 独立处理 runtime gap/verdict：默认五项正常可为
+`pass_with_gaps`；显式选中的工具缺失为 `cannot_judge`；历史结果不等于当前代码合格。
+
 ## 它解决什么问题
 
 AI 编程助手让"能跑的代码"变得廉价，也让这类问题变得高频：
@@ -151,7 +199,10 @@ cq gate --run <run_id> --target A   # ③ 质量门：blocker/high/复杂度/覆
 - **不许静默 pass**：工具缺失/超时/解析失败 → `skipped` / `timeout` / `error` + 原因，绝不当作通过。
 - **只读**：不改代码、不 commit；所有工具缓存重定向到 `audits/`，目标仓库 `git status` 不变（只多 `audits/`）。
 - **扫描范围与工具对齐**：扫描遵循目标仓库根 `.gitignore`（目录名/通配/相对路径的轻量子集，
-  不支持 `!` 否定——见到会提示；精确排除用 `cq.toml` 的 `respect_gitignore = false` 关闭或另行配置）。
+  支持单段目录名、basename 通配、精确相对路径及其子树；不支持带斜杠的目录模式/通配、
+  `!` 否定和嵌套规则）。`respect_gitignore = false` 可关闭此过滤，不代表完整 gitignore 实现。
+  输入遍历不跟随目录符号链接；文件链接另做归属校验。前缀命中逃逸 junction 时整体拒绝，
+  不跳过它继续挑选其他 run。
 - **脱敏**：密钥/token 在任何产物落盘前统一替换为 `***REDACTED***`（含 raw 原始输出）。
 - **离线**：DeepSec L3 / SonarCloud / AI review 一律 opt-in，当前版本未实现、不会调用。
 

@@ -10,6 +10,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from .evidence import atomic_json
+from .redact import redact_obj
 from .runs import (
     RunData,
     RunNotFoundError,
@@ -34,7 +36,7 @@ def save_baseline(project_root: Path, run_ref: str, name: str) -> tuple[Path, Ru
         "totals": run.summary.get("totals"),
         "findings": run.findings,
     }
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_json(path, redact_obj(payload))
     return path, run
 
 
@@ -46,21 +48,40 @@ def load_baseline(project_root: Path, ref: str) -> tuple[str, RunData]:
     """
     validate_baseline_name(ref)
     path = baseline_path(project_root, ref)
-    if path.is_file():
+    if path.exists():
+        if not path.is_file():
+            raise RunNotFoundError("Baseline is not a regular file", "INVALID_ARTIFACT")
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as e:
-            raise RunNotFoundError(f"基线 {ref} 读取失败: {e}") from e
-        source_id = str(data.get("source_run_id", ""))
+        except (UnicodeError, json.JSONDecodeError) as e:
+            raise RunNotFoundError(f"基线 {ref} 解码失败", "INVALID_ARTIFACT") from e
+        except OSError as e:
+            code = (
+                "INVALID_ARTIFACT"
+                if isinstance(e, (FileNotFoundError, IsADirectoryError))
+                else "IO_ERROR"
+            )
+            raise RunNotFoundError(f"基线 {ref} 读取失败: {e}", code) from e
+        if not isinstance(data, dict):
+            raise RunNotFoundError("Baseline must be an object", "INVALID_ARTIFACT")
+        findings = data.get("findings")
+        if not isinstance(findings, list) or any(not isinstance(item, dict) for item in findings):
+            raise RunNotFoundError(
+                "Baseline findings must be an array of objects", "INVALID_ARTIFACT"
+            )
+        source_id = data.get("source_run_id", "")
+        if not isinstance(source_id, str):
+            raise RunNotFoundError("Baseline source_run_id must be a string", "INVALID_ARTIFACT")
         try:
             run_dir = resolve_run_dir(project_root, source_id) if source_id else path.parent
-        except RunNotFoundError:
+        except RunNotFoundError as exc:
+            if exc.code not in ("RUN_NOT_FOUND", "RUN_NOT_READY"):
+                raise
             run_dir = path.parent  # 源 run 已清理：基线仍然自洽可用
-        findings = data.get("findings") if isinstance(data.get("findings"), list) else []
         return ref, RunData(
             run_id=f"{ref}(←{source_id or '?'})",
             run_dir=run_dir,
-            summary=data if isinstance(data, dict) else {},
+            summary=data,
             findings=findings,
         )
     # 回退：当作 run_id / 前缀解析
