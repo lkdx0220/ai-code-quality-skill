@@ -12,7 +12,7 @@
 - [x] 十万条合成清单流式输出14.2MB、汇总126B；仅验证序列化规模，不替代真实核心枚举/新鲜度计时。
 - [ ] SDK稳定版本/许可证/Python/协议、两个真实客户端及输出限制核查；已确认mcp 2.3.0、协议2025-11-25，Claude Code、ZCode及Kimi Code 1.1.3连通性子集通过；许可证及完整宿主输出/期限矩阵仍待核查，VS Code当前Agent通道禁用。
 - [x] Windows suspended-create/Job Object、Linux正常清理和强杀后恢复阻断原型；Windows产品路径已测，Linux产品Service真实SIGKILL/同state及跨state残留阻断4/4通过（受控子命令注入，非stdio宿主强杀），见linux-recovery-readonly-validation.md；完整T08仍按矩阵保留。
-- [ ] initialize冷启动及异步调度原型；SDK缺extra兼容。
+- [x] initialize冷启动及异步调度原型；0.6.0rc1两平台四组安装包SDK initialize<5s，既有异步查询/取消回归通过；无SDK核心两平台明确exit2且stdout无日志。见release-readiness-0.6.0rc1.md；不代替完整宿主期限矩阵。
 - [x] 大仓库inputs汇总/流式清单原型：32,000真实文件，9,312,754字节完整清单/743字节摘要，120s配置下逐文件和总摘要均核对通过；不代替产品分页/新鲜度验收。
 - [x] 固定CLI现有行为及来源输入摘要：doctor-before/scan-before与cq-mcp-before-20261025基线已保留，核心修改逐项留痕。
 
@@ -66,11 +66,13 @@
 
 ## 4. 发布
 - [ ] 全矩阵证据齐全，必验不以skip顶替；静态审查不替代运行验收。当前已覆盖Windows/Python 3.13、Linux/Python 3.11构建安装与SDK stdio子集，以及Claude Code、ZCode和Kimi Code 1.1.3宿主连通性子集。
-- [ ] 构建包内容、许可证、依赖、版本、README与工具面一致，无私有目录/凭据/audits入包；构建成员审查已完成，许可证/依赖最终发布复验仍待完成。
+- [x] 0.6.0rc1具体候选的构建内容、许可证、依赖闭包、版本、README/工具面复验通过；内部change记录不入sdist，LICENSE/NOTICE入包。两平台wheel/sdist四组SDK九工具、质量失败/缺工具/取消和45文件来源核对通过，见release-readiness-0.6.0rc1.md。此勾选只覆盖本候选包预检，不关闭完整发布矩阵或批准渠道。
 - [ ] 用户可审阅候选包与发布说明后确认渠道；公开固定版本安装复验与回退说明。
 - [ ] 验收完成后同步现状规格并归档change。
 
 ## 2026-10-26 验收增量
+
+- 发布预检：0.6.0rc1独立包与许可证完成；首次真实Linux工具链验收暴露venv Python被resolve成基础解释器，已修复并以CLI/env/config/default四组真实venv独有模块反验（修前4失败，修后4通过）。Windows最终452通过/16跳过，Linux458通过/10跳过，覆盖率84.08%，A门exit0；各平台wheel/sdist SDK九工具、真实质量失败/缺工具/实际取消通过。剩余宿主期限、Windows ACL、混合故障等逐项见release-readiness-0.6.0rc1.md，未擅自降级或关闭。
 
 - T12/T19/T24 宿主增量（提交 ab3d484 构建包）：Claude Code 2.1.203 与 Kimi Code 1.1.3 原生 MCP 各11次调用，通过200条finding分页、72124字符占位分块、233435字符diff快照、35秒注入响应延迟及真实pytest子树主动取消。另验证Claude宿主强杀后的cancelled，以及Kimi服务强杀后宿主自动重连得到interrupted；未重提扫描，四state最终预留0，旧证据未变。详见host-acceptance-ab3d484.md；35秒为传输等待而非核心计算，完整T19与发布矩阵仍保留未完成。
 

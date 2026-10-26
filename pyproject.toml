@@ -1,14 +1,15 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
 name = "ai-code-quality"
-version = "0.5.2"
+version = "0.6.0rc1"
 description = "cq - 通用本地代码质量扫描 CLI：统一聚合 ruff/mypy/radon/vulture/pytest/import-linter/deepsec 的 findings"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "cq" }]
 keywords = ["code-quality", "lint", "security", "sonar", "ai-slop"]
 classifiers = [
@@ -34,7 +35,7 @@ exclude = [
   "/archive",
   "/work",
   "/outputs",
-  "/openspec/changes/*/reviews/**",
+  "/openspec/changes",
 ]
 
 [tool.pytest.ini_options]

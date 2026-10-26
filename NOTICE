@@ -1,0 +1,22 @@
+ai-code-quality (cq)
+Copyright (c) 2026 ai-code-quality contributors
+The cq source code is licensed under the MIT License; see LICENSE.
+
+Optional MCP integration uses separately installed third-party distributions:
+  mcp 2.3.0 (MIT), https://github.com/modelcontextprotocol/python-sdk
+  pywin32 312 (Windows only), https://github.com/mhammond/pywin32
+
+pywin32's distribution contains multiple component licenses, including the
+Mark Hammond redistribution license, Python/PSF licenses, Scintilla's license,
+the MIT MAPIStubLibrary license, and LGPL-2.1-or-later for adodbapi. Its package
+metadata label "PSF" does not describe every bundled component.
+
+MCP transitive dependencies retain their own licenses. Installation obtains
+their original distributions and accompanying license/notice files. This cq
+wheel and source archive do not bundle the SDK, pywin32, their dependencies,
+or the external analyzers invoked by cq. Do not label an environment or
+third-party wheel bundle as entirely MIT-licensed merely because cq is MIT.
+
+Runtime dependency review and external analyzer attribution are documented in
+docs/third-party.md and README.md. Any future redistributable runtime bundle
+requires a separate review of all included third-party components and notices.

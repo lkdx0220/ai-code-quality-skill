@@ -56,11 +56,12 @@ pytest 须同时设置启动选项 `--allow-test-execution` 并在调用中显�
 
 | 范围 | 结果与证据 |
 |---|---|
-| Windows / Python 3.13 最新源码自扫 | 452 通过、12 默认跳过；A 门 exit 0；覆盖率 84.12% |
-| Linux / Python 3.11 本轮受影响进程/服务/崩溃恢复子集 | 87 通过、1 Windows 专用测试跳过 |
+| Windows / Python 3.13 候选源码自扫 | 452 通过、16 默认/平台跳过；A 门 exit 0；覆盖率 84.08% |
+| Linux / Python 3.11 候选源码完整回归 | 458 通过、10 默认/平台跳过 |
 | Claude Code 2.1.203、Kimi Code 1.1.3 真实宿主 | 大结果分页/分块、35 秒注入响应等待及真实进程取消通过；分别验证宿主强杀清理、服务强杀后重连且任务不重跑 |
 | ZCode | doctor → scan → poll 连通性子集通过 |
 | 构建安装及恢复 | 两平台 wheel/sdist 构建安装与 SDK stdio 子集、进程树回收、SQLite 故障、Linux 受控真实 ENOSPC 已有阶段证据 |
+| 0.6.0rc1 候选包 | 两平台 wheel/sdist 四组独立安装，九工具、真实质量失败、缺工具及实际进程取消通过；未当作真实宿主验收 |
 
 35 秒测试验证客户端等待能力，不代表核心计算耗时或最坏期限验证。
 7 个分析工具正常；import-linter 因本仓无架构契约配置跳过，不计通过。
@@ -71,6 +72,11 @@ pytest 须同时设置启动选项 `--allow-test-execution` 并在调用中显�
 
 MCP 尚未单独发布版本；旧 `v0.5.2` 标签不含 MCP，请使用上述提交或源码 `main`。
 完整宿主失败/期限矩阵及其余发布检查仍待完成，VS Code 未记为已通过。
+
+发布预检使用 **`0.6.0rc1` 候选版本**，避免与旧版 `0.5.2` 的包身份混淆；
+尚未创建该版本的 tag、GitHub Release 或 PyPI 版本。
+候选范围、安装与回退见[候选说明](docs/releases/cq-mcp/0.6.0rc1.md)，
+MCP 安装依赖及 pywin32 多组件许可见[第三方许可](docs/third-party.md)。
 
 <details>
 <summary>核心证据扩展与 CLI 兼容边界</summary>
@@ -282,6 +288,8 @@ cq gate --run <run_id> --target A   # ③ 质量门：blocker/high/复杂度/覆
 | [DeepSec](https://github.com/Unclecheng-li/DeepSec) | 安全扫描 L1/L2（硬编码密钥、危险写法、注入） | MIT | Unclecheng-li/DeepSec |
 
 cq 自身代码为原创，以 MIT 许可证发布（见 `LICENSE`）。
+可选 MCP 安装另依赖官方 SDK 及 Windows 的 pywin32；其传递依赖和多组件许可另见
+[第三方许可](docs/third-party.md)与随包附带的 `NOTICE`，不能把整个安装环境统称为MIT。
 如果你在报告中引用 cq 的扫描结果，建议同时注明底层工具，例如
 "扫描结果由 ruff / mypy / radon / vulture / pytest / import-linter / DeepSec 产出，cq 聚合"。
 

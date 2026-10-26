@@ -20,6 +20,8 @@ project 必须存在；state-dir 要在被扫描树之外。启动仅做参数/�
 
 解释器选择采用明确的轻量规则：--tool-python > 启动 CQ_PYTHON > 项目 cq.toml/.cq.toml > 服务 sys.executable。只解析路径和记录来源，不自动遍历候选解释器；首次 doctor 检查该固定解释器，缺工具返回缺失，引导用户重启时显式指定其他解释器。每次 doctor/scan 传 --python，DeepSec 配置/子进程 env 同样冻结。项目执行配置变更返回 CONFIG_CHANGED；不输出完整环境。受信项目包含其执行配置，不能把此机制宣称为安全沙箱。
 
+0.6.0rc1修订：解释器固定为绝对路径但不解引用可执行文件符号链接；POSIX venv的Python链接决定其site-packages，resolve到基础Python会丢失环境。项目/state归属仍用真实路径校验，不能把此解释器规则推广为路径防线降级。
+
 doctor为应用层job：cq_doctor快速提交kind=doctor，使用同一job_get/cancel；总期限600s。扫描默认3600s；启动参数--max-scan-seconds范围1..86400、默认3600，调用timeout_seconds范围1..该上限。新鲜度及扫描前后各一次输入监视期限由启动--inputs-timeout-seconds设定，范围1..600、默认60；传给核心inputs/scan，不能由调用方传任意CLI参数。gate/diff核心计算上限60s，回收宽限5s。扫描两次监视也计入扫描总期限，整体上限可早于工具预算耗尽。
 
 gate/diff首版保留同步调用；verify_current仅校验目标run的一次工作区清单，基线只验证历史产物身份。默认最坏执行上限125s（60+60+5），最大配置665s；客户端工具调用期限须再留协议余量，建议至少上限+15s。文档提供两个真实宿主对应配置；T19必须验证长调用、断开后取消与子树回收。若真实宿主不支持所需时限，不能宣称支持该配置，须在核心扩展前修订接口或发布兼容范围。

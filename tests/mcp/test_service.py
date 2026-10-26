@@ -8,7 +8,7 @@ import time
 
 import pytest
 
-from ai_code_quality import scan
+from ai_code_quality import __version__, scan
 from ai_code_quality.adapters import ADAPTER_NAMES
 from ai_code_quality.adapters.base import Adapter
 from ai_code_quality.config import Config
@@ -180,7 +180,7 @@ def test_failed_quality_stays_a_successful_tool_call(settings, monkeypatch):
         ],
     }
     atomic_json(output.run_dir / "findings.json", payload)
-    publish_run(output.run_dir, "sample", "0.5.2")
+    publish_run(output.run_dir, "sample", __version__)
     result = call(Service(settings), "cq_gate", run_id="sample", verify_current=False)
     assert result["ok"] and result["cq_exit_code"] == 1 and result["data"]["verdict"] == "fail", (
         result
@@ -195,7 +195,7 @@ def test_large_finding_progress_unicode_artifact_and_stale_cursor(settings, monk
         {"id": "small", "status": "new", "severity": "low", "message": "small"},
     ]
     atomic_json(output.run_dir / "findings.json", {"run_id": "sample", "findings": findings})
-    publish_run(output.run_dir, "sample", "0.5.2")
+    publish_run(output.run_dir, "sample", __version__)
     service = Service(settings)
     first = call(service, "cq_findings_get", run_id="sample", limit=1)
     assert first["ok"], first
@@ -217,7 +217,7 @@ def test_large_finding_progress_unicode_artifact_and_stale_cursor(settings, monk
     assert json.loads(text) == findings[0]
     findings[1]["message"] = "changed"
     atomic_json(output.run_dir / "findings.json", {"run_id": "sample", "findings": findings})
-    publish_run(output.run_dir, "sample", "0.5.2")
+    publish_run(output.run_dir, "sample", __version__)
     stale = call(service, "cq_findings_get", run_id="sample", limit=1, cursor=data["next_cursor"])
     assert stale["error"]["code"] == "STALE_CURSOR"
 
@@ -467,7 +467,7 @@ def test_unknown_versions_do_not_make_two_runs_comparable(settings, monkeypatch)
         summary = json.loads(path.read_text(encoding="utf-8"))
         summary["tools"][0].pop("version")
         atomic_json(path, summary)
-        publish_run(output.run_dir, identity, "0.5.2")
+        publish_run(output.run_dir, identity, __version__)
     result = call(Service(settings), "cq_diff", run_id="target", base_run_id="base")
     assert result["ok"], result
     assert result["data"]["comparability"]["comparable"] is False
@@ -558,7 +558,7 @@ def test_large_diff_has_complete_snapshot_instead_of_truncation(settings, monkey
         for index in range(200)
     ]
     atomic_json(output.run_dir / "findings.json", {"run_id": "target", "findings": findings})
-    publish_run(output.run_dir, "target", "0.5.2")
+    publish_run(output.run_dir, "target", __version__)
     service = Service(settings)
     result = call(service, "cq_diff", run_id="target", base_run_id="base")
     assert result["ok"] and result["data"]["core_inline"] is False, result

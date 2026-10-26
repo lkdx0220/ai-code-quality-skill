@@ -13,6 +13,8 @@ vulture、pytest、import-linter、DeepSec；MCP 提供任务生命周期和证�
 
 声明的可选依赖为 `mcp==2.3.0`，Windows 另需 `pywin32==312`。核心 CLI 仍无运行时依赖。
 实现及阶段验收已合入main；MCP尚未单独发布版本，旧v0.5.2标签不包含本功能。
+当前发布预检版本为0.6.0rc1，尚未公开发布；见[候选说明](releases/cq-mcp/0.6.0rc1.md)
+及[依赖许可说明](third-party.md)。
 可安装已通过源码A门的提交；不表示已上传PyPI：
 
 ```text
@@ -24,6 +26,7 @@ cq-mcp --project /absolute/trusted-project --state-dir /absolute/cq-state --tool
 服务解释器应有 MCP extra，`--tool-python` 是已有分析工具所在解释器；服务不自动安装工具。
 优先级：显式参数 > 启动 `CQ_PYTHON` > 项目 cq.toml/.cq.toml > 服务解释器。
 启动不遍历解释器或运行 doctor。环境与执行配置冻结，配置改变报 `CONFIG_CHANGED`，需重启。
+工具Python路径会转成绝对路径，但保留POSIX venv的可执行文件符号链接，避免丢失该环境的已装工具。
 缺 extra 时 stderr 提示安装可选依赖并 exit 2，stdout 不输出非协议日志。
 
 客户端应启动该进程并使用 stdio。通用配置示例见 `examples/mcp/server.json`，其中路径需替换。
@@ -150,8 +153,10 @@ Linux Service 强杀恢复及普通 UID 只读权限子集、Claude Code/ZCode/K
 200条finding分页、72124字符占位分块、233435字符diff快照、35秒响应延迟及主动取消通过。
 Claude宿主强杀后任务cancelled、子树回收；Kimi服务强杀后宿主自动重连得到interrupted，任务不重跑。
 这些场景不代表两个宿主各自覆盖所有断开组合，35秒也不代表核心计算性能。
-参数边界收尾后的最新源码A门exit0，Windows452通过/12默认跳过、Linux受影响子集87通过/1平台跳过，
-覆盖率84.12%；7工具ok，import-linter无契约配置skipped。见[A门记录](../openspec/changes/add-local-cq-mcp/a-gate-validation.md)。
+0.6.0rc1候选源码A门exit0，Windows452通过/16默认及平台跳过、Linux完整回归458通过/10跳过，
+覆盖率84.08%；7工具ok，import-linter无契约配置skipped。此前参数修订见[A门记录](../openspec/changes/add-local-cq-mcp/a-gate-validation.md)。
+候选wheel/sdist的两平台四组干净安装均完成SDK九工具、真实ruff质量失败、缺工具cannot_judge和pytest子树取消；
+源码逐文件与wheel一致。该SDK回环不是新的真实宿主验收。
 宿主记录仍绑定ab3d484安装包，最新源码回归绑定后续参数修订，不能混用版本声明。
 完整宿主失败/实际期限矩阵、其余崩溃排列、容量混合故障和Windows只读ACL等仍按任务表待验。
 这是已推送的实现候选，不是正式版本发布或全验收通过声明。CLI/Skill/DSH仍可作为回退入口。

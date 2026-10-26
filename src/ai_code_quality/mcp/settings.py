@@ -40,7 +40,8 @@ class Settings:
         interpreter = Path(config.python)
         if not interpreter.is_absolute():
             interpreter = self.project / interpreter
-        self.tool_python = str(interpreter.resolve())
+        # A venv's symlink is part of its execution context; resolving it selects base Python.
+        self.tool_python = os.path.abspath(interpreter)
         if not interpreter.is_file():
             raise ServiceError("CLI_UNAVAILABLE", "Configured tool interpreter does not exist")
         self.python_source = config.python_source
