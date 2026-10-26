@@ -1,7 +1,7 @@
 # ai-code-quality（`cq`）· CLI / Skill / MCP
 
 [![CI](https://github.com/lkdx0220/ai-code-quality-skill/actions/workflows/ci.yml/badge.svg)](https://github.com/lkdx0220/ai-code-quality-skill/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/LICENSE)
 
 **面向 Python 项目的本地代码质量工具**：`cq` CLI 聚合扫描、基线对比与质量门；
 [`Skill`](https://github.com/lkdx0220/ai-code-quality-skill/tree/main/agent-adapters/) 指导 Agent 分批修复；[本地 MCP](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/docs/mcp.md) 让客户端直接调用同一核心，

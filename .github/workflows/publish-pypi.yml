@@ -37,12 +37,12 @@ jobs:
 
           expected = {
               "ai_code_quality-0.6.0rc2-py3-none-any.whl": (
-                  145136,
-                  "df2445aecd6911bb9a48c5d36ab660f036adc78b66cb38ad40a9c32a24307e3a",
+                  145143,
+                  "bde0b1a7c61a1779951bf022e0db208dfe5dc1d21df59ddd52c865e32e3d5dd9",
               ),
               "ai_code_quality-0.6.0rc2.tar.gz": (
-                  217452,
-                  "3470f0586f97597ff5029ffb700262dffb63e669611f7ec290e729772bdca902",
+                  217447,
+                  "ddc607a2f7df1fb7f21e38282f3c2dde51b54447b22ff4960cd1a81e6304ed18",
               ),
           }
           directory = Path("dist")
