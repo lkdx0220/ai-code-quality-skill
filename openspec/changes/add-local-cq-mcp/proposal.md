@@ -48,6 +48,7 @@ CQ-MCP-01至CQ-MCP-15定义于specs/cq-mcp/spec.md，design.md为规范性字段
 | docs/mcp.md | 安装/启动、可信边界、写入范围、终态重试和清理指引 |
 | docs/releases/cq-mcp/ | 平台/客户端矩阵及发布证据 |
 | examples/mcp/ | 不含私人路径/凭据的配置示例 |
+| .github/workflows/publish-pypi.yml | 用户确认PyPI渠道后的手动OIDC发布；只接受已验收0.6.0rc1冻结资产，校验摘要后上传，不重建或自动打tag |
 
 ## MODIFIED
 

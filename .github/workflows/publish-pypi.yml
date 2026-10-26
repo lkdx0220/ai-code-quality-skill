@@ -1,0 +1,59 @@
+name: Publish verified 0.6.0rc1 to PyPI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-pypi-0.6.0rc1
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'lkdx0220/ai-code-quality-skill' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/ai-code-quality/0.6.0rc1/
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download frozen candidate assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download v0.6.0rc1 --repo "$GITHUB_REPOSITORY" --dir dist \
+            --pattern ai_code_quality-0.6.0rc1-py3-none-any.whl \
+            --pattern ai_code_quality-0.6.0rc1.tar.gz
+      - name: Verify exact accepted package bytes
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          expected = {
+              "ai_code_quality-0.6.0rc1-py3-none-any.whl": (
+                  144828,
+                  "694fcbb27f70d79bdb7fb61b96b6372fa85945b35ba46de3631a3bf656e2e084",
+              ),
+              "ai_code_quality-0.6.0rc1.tar.gz": (
+                  209720,
+                  "199770884f58c781849e54877e27c187619db4e207e785c654aa51705263eb93",
+              ),
+          }
+          directory = Path("dist")
+          assert {p.name for p in directory.iterdir()} == set(expected)
+          for name, (size, digest) in expected.items():
+              data = (directory / name).read_bytes()
+              assert len(data) == size, name
+              assert hashlib.sha256(data).hexdigest() == digest, name
+              print("Verified:", name)
+          PY
+      - name: Publish through PyPI Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: dist/
