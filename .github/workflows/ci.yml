@@ -129,6 +129,10 @@ jobs:
               for t in summary["tools"]
               if t["status"] in ("error", "timeout")
           ]
+          if bad_tools or any(f.get("source") == "pytest" for f in findings):
+              pytest_log = run / "raw" / "pytest.txt"
+              if pytest_log.is_file():
+                  print(pytest_log.read_text(encoding="utf-8"))
           assert not bad_tools, f"工具执行不完整: {bad_tools}"
 
           active_bh = [
