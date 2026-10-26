@@ -1,6 +1,8 @@
-# cq MCP 现状规格（0.6.0rc1）
+# cq MCP 现状规格（0.6.0rc2）
 
 状态：已实现并于2026-10-26公开预发布，产品基线4a349686。
+当前公开版本为0.6.0rc2：仅修订README、包元数据和版本；以下行为契约与rc1一致。
+本次公开安装复验见[rc2发布核验](../../changes/archive/2026-10-26-fix-pypi-readme-rc2/verification.md)。
 完整字段/算法契约见[归档设计](../../changes/archive/2026-10-26-add-local-cq-mcp/design.md)，
 验收与公开安装范围见[发布记录](../../changes/archive/2026-10-26-add-local-cq-mcp/publication-0.6.0rc1.md)。
 要求正文从已完成change同步，未改变检测规则、阈值或既有契约。
