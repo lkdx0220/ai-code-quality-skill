@@ -10,13 +10,13 @@
 - [x] Windows机制原型：先挂起再纳入Job，取消/超时/owner强杀均确认进程句柄退出；非产品恢复逻辑验收。
 - [x] WSL Ubuntu进程组原型：正常取消无运行后代；强杀owner后确有存活后代，随后清理。证明恢复阻断的必要性，未实现恢复守卫。
 - [x] 十万条合成清单流式输出14.2MB、汇总126B；仅验证序列化规模，不替代真实核心枚举/新鲜度计时。
-- [ ] SDK稳定版本/许可证/Python/协议、两个真实客户端及输出限制核查；已确认mcp 2.3.0、协议2025-11-25，并通过Claude Code一个真实宿主，VS Code当前Agent通道禁用。
-- [ ] Windows suspended-create/Job Object、Linux正常清理和强杀后恢复阻断原型；Windows产品路径已测，Linux仅完成stdio/基础进程路径，强杀恢复仍待产品验收。
+- [ ] SDK稳定版本/许可证/Python/协议、两个真实客户端及输出限制核查；已确认mcp 2.3.0、协议2025-11-25，Claude Code、ZCode及Kimi Code 1.1.3连通性子集通过；许可证及完整宿主输出/期限矩阵仍待核查，VS Code当前Agent通道禁用。
+- [x] Windows suspended-create/Job Object、Linux正常清理和强杀后恢复阻断原型；Windows产品路径已测，Linux产品Service真实SIGKILL/同state及跨state残留阻断4/4通过（受控子命令注入，非stdio宿主强杀），见linux-recovery-readonly-validation.md；完整T08仍按矩阵保留。
 - [ ] initialize冷启动及异步调度原型；SDK缺extra兼容。
 - [x] 大仓库inputs汇总/流式清单原型：32,000真实文件，9,312,754字节完整清单/743字节摘要，120s配置下逐文件和总摘要均核对通过；不代替产品分页/新鲜度验收。
 - [x] 固定CLI现有行为及来源输入摘要：doctor-before/scan-before与cq-mcp-before-20261025基线已保留，核心修改逐项留痕。
 
-已核查本机Claude Code2.1.203、VS Code1.141.2命令可用，尚未接入cq MCP；Linux仅WSL机制原型，构建包和原生Linux/双宿主/实际大仓库仍待验。原型未被计入T01–T28产品验收通过数。
+调查时核查本机Claude Code2.1.203、VS Code1.141.2命令可用；后续已补Windows/Linux构建安装、SDK回环及三个真实宿主连通性子集，见阶段记录。完整宿主矩阵及实际大仓库产品验收仍待完成。原型未被计入T01–T28产品验收通过数。
 
 ## 2. 实施顺序
 - [x] 核心run ID/显式空adapter校验、错误映射、config快照字段、doctor来源修正；214/214回归，含未知adapter旧exit1守卫。
@@ -29,7 +29,7 @@
 - [x] docs/mcp.md、README与通用启动示例更新；候选声明mcp2.3.0/pywin32 312，无本轮安装。
 - [x] 文档、CLI/Skill回退；README、docs/mcp.md和通用启动示例已更新。
 - [x] 构建安装子集：wheel/sdist构建成功；缺MCP extra时明确exit 2；Windows/Python 3.13和Linux/Python 3.11全新venv安装wheel/sdist并完成SDK ClientSession stdio九工具回环。证据见`audits/cq-mcp-build-20261025-01/build-install-report.md`、`audits/cq-mcp-build-20261025-02/build-package-review.md`及`audits/cq-mcp-host-20261025-01/host-and-linux-validation.md`。
-- [ ] 真实宿主验证：Claude Code已完成doctor/scan实际调用；VS Code当前Agent通道禁用，未记通过；长gate/diff、宿主期限和断开取消仍待验。
+- [ ] 真实宿主验证：Claude Code、ZCode和Kimi Code 1.1.3已完成doctor/scan/poll连通性子集；Kimi版本由用户报告，本地台账和marker复算匹配，见`audits/cq-mcp-host-20261025-01/kimi-validation.md`。VS Code当前Agent通道禁用，未记通过；长gate/diff、宿主期限和完整断开取消矩阵仍待验。
 
 ## 3. 验收矩阵
 
@@ -65,10 +65,43 @@
 | T28 | CQ-MCP-10/11 | Config.snapshot新增字段，rules_version和suppression摘要保存；旧字段缺失明确unknown、不假定默认相同 |
 
 ## 4. 发布
-- [ ] 全矩阵证据齐全，必验不以skip顶替；静态审查不替代运行验收。当前已覆盖Windows/Python 3.13、Linux/Python 3.11构建安装与SDK stdio子集，以及Claude Code宿主子集。
+- [ ] 全矩阵证据齐全，必验不以skip顶替；静态审查不替代运行验收。当前已覆盖Windows/Python 3.13、Linux/Python 3.11构建安装与SDK stdio子集，以及Claude Code、ZCode和Kimi Code 1.1.3宿主连通性子集。
 - [ ] 构建包内容、许可证、依赖、版本、README与工具面一致，无私有目录/凭据/audits入包；构建成员审查已完成，许可证/依赖最终发布复验仍待完成。
 - [ ] 用户可审阅候选包与发布说明后确认渠道；公开固定版本安装复验与回退说明。
 - [ ] 验收完成后同步现状规格并归档change。
 
+## 2026-10-26 验收增量
+
+- T08/T26 子集：新增Linux真实进程强杀测试4/4通过；提交后未spawn及运行中窗口、同state及跨state竞争均覆盖，残留存活时CLEANUP_FAILED，清理后interrupted，同key不重跑。
+- T16 子集：普通UID65534及真实只读权限负控通过；gate历史/当前验证、diff、快照读取均成功，项目41文件及Git状态不变，旧CLI写盘exit4。
+- 证据、首轮失败及未跑边界见`linux-recovery-readonly-validation.md`；产品代码未改，完整T08/T16/T26未勾选通过。
+- T22 容量增量：Windows/Python3.13 与 Linux/Python3.11 各五项压力场景加一项真实八进程竞争全部通过（合计12，无skip）。1000小任务、第1001拒绝；10000游标、第10001拒绝；100次8MiB快照尝试接受29/拒绝71；三轮八连接及一轮八进程竞争不超卖；耗尽时实际子进程仍可取消并确认清理，已有结果可读。测试方法、缩小容量夹具及非stdio边界见`capacity-validation.md`。未改产品配额；完整混合负载/物理磁盘满/清state与owner流程仍待验。
+- T05/T08/T11/T23/T26 故障增量：Windows、Linux 各31项通过（5个真实stdio owner强杀场景+26个存储故障）；Linux私有32MiB tmpfs实际ENOSPC两项通过。未提交事务回滚、已提交任务不重放、Windows子树回收/Linux残留阻断、旧证据保留均验证。精确窗口的测试屏障与未修改入口黑盒区分见`fault-recovery-validation.md`。
+- 修复 `Store.transaction` 连接建立在try外导致错误未结构化的问题；Windows最终回归384项通过、无skip（排除单独分批压力/POSIX/磁盘模块），ruff/format/mypy通过。未重跑完整自扫/A门，未改正式.cq。
+- [x] T07 故障期限定向修复：只读连接不抢写锁、控制busy等待100ms、审计独立线程/OS互斥等待50ms；真实RESERVED/EXCLUSIVE锁下查询/取消受理<1s。跨实例轮询不等锁，期限检查不再被5s轮询挡住。详见control-channel-fixes.md；不据此关闭完整T07。
+- [x] 物理满盘本owner回收定向修复：按job_id发内存取消信号，state实际ENOSPC仍回收子树；无法落盘返回独立标记及warning，终态保留本owner内存，空间恢复后查询触发终态/预留原子补记。跨实例不可写仍明确失败；pending时真实stdio owner强杀后保守恢复interrupted，不宣称内存事实可跨重启保留。
+
 ## 本轮边界
-r03规格、阶段1原型、核心和服务候选分开记录。核心317项加服务36项为353项；服务实现及最终回归见service-implementation.md。Windows/Linux构建安装与SDK stdio不冒充T01–T28全矩阵或双宿主通过。第二真实宿主、Linux强杀恢复、长调用/断开全链、完整容量压力/只读ACL、许可证/依赖发布复验等仍待验。全量A门未转绿，正式.cq未改。用户转交的复核不冒称本会话调用；本轮未调用外部模型、未commit或发布。
+
+控制修复独立审核的后续项：
+- [x] Kimi F-01：主操作失败后rollback/close二次错误保护及结构化回归。
+- [x] GLM F1：pending补记成功直接返回提交快照，避免追加读取误报未落盘。
+- [x] GLM F2：queued→running短暂STATE_BUSY有界重试、可取消、不越总预算、不提前spawn。
+- [x] GLM F3（既有，后续专门批次已修复）：同项目执行锁及旧进程域核验后，当前state旧op-*与新接纳同事务恢复；job/证据/其他state不删，不按年龄/PID消失回收。见operation-recovery-validation.md；不计入前一批三项修复。
+
+F3专门批次：新增30项，其中每平台12个真实stdio owner强杀窗口；Windows最终440通过、
+Linux故障恢复93通过，均无skip；配额竞争/控制子集两平台各3通过。
+自扫覆盖率4037/4803=84.0516%，相对控制审核后续自扫新增0/修复0/仍存在7/豁免1，
+diff exit0、A门仍因既有blocker/high exit1。完整宿主/发布矩阵仍待验，未commit/push/发布。
+
+处理表与证据见control-review-followup.md。Windows410/0 skip、Linux故障恢复63/0 skip；
+最终加强启动断言补验Linux5通过，Windows最终自扫再次覆盖普通全回归。
+覆盖率4022/4792=83.9316%；相对控制修复自扫新增0/修复0/仍存在7/豁免1；
+diff exit0、A门因既有blocker/high仍exit1。原报告/冻结包未改，修订候选未再次独立签署。
+r03规格、阶段1原型、核心和服务候选分开记录。核心317项加服务36项为353项历史完整回归；此前故障批次Windows384项及容量两平台12项见各自报告，不与后续重复计数。Windows/Linux构建安装、SDK stdio及三个真实宿主连通性子集不冒充T01–T28全矩阵通过。
+
+2026-10-26控制修复增量：Windows回归398 passed/0 skip；Linux故障/恢复51 passed/0 skip；最终字段及受影响压力子集补验Windows7/Linux10通过。并发审计/同时完成取消/两种写锁读取共4场景连续6轮均通过（24次执行，不是全矩阵六遍）。真实stdio新增pending终态写失败后owner强杀恢复窗口。根因、首轮失败及证据见control-channel-root-cause.md和control-channel-fixes.md。
+
+自扫run cq-mcp-control-selfscan-20261026-01：7工具ok、import-linter无配置skipped、consistent；覆盖率3985/4756=83.7889%。相对service-20261025-03新增0/修复0/仍存在7/豁免1；diff exit0，A门因既有blocker/high仍exit1。正式.cq未改。检测能力由底层工具提供，cq聚合编排。
+
+已复现的控制写锁期限及本owner满盘回收差距已定向关闭；完整T07/发布矩阵不关闭。其余崩溃排列、宿主失败/大结果/长调用/断开全链、容量混合故障与清state流程/Windows只读ACL、许可证/依赖发布复验仍待验。另一实例无法读取owner内存终态、不可写时无法持久化跨实例取消的边界已明确；pending丢失的重启不假称找回精确终态。用户转交的复核不冒称本会话调用；本次未调用外部模型、未commit、push或发布。

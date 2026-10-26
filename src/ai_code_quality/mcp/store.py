@@ -8,14 +8,16 @@ import os
 import sqlite3
 import time
 import uuid
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from pathlib import Path
 
 from ..redact import REDACTION_RULES_VERSION, redact_obj
 from .contracts import CAPTURE_LIMIT, ServiceError, encode
+from .locking import audit_lock
 
 RESERVATION = 9 * 1024 * 1024
 CONTROL_HEADROOM = 16 * 1024 * 1024
+CONTROL_WAIT = 0.1
 ARTIFACT_TYPES = frozenset(
     (
         "summary",
@@ -39,6 +41,7 @@ class Store:
     def __init__(self, root: Path, project: str, *, capacity=256 * 1024 * 1024):
         root.mkdir(parents=True, exist_ok=True, mode=0o700 if os.name != "nt" else 0o777)
         self.root, self.path, self.capacity = root, root / "state.sqlite3", capacity
+        self.project_identity = project
         if self.path.is_symlink() or self.path.resolve().parent != root.resolve():
             raise ServiceError("OUTSIDE_PROJECT", "State database escapes its directory")
         with self.transaction() as db:
@@ -63,24 +66,33 @@ class Store:
             db.execute("INSERT OR IGNORE INTO meta VALUES ('project', ?)", (project,))
 
     @contextmanager
-    def transaction(self):
-        db = sqlite3.connect(self.path, timeout=5, isolation_level=None)
+    def transaction(self, *, timeout=5, readonly=False):
+        db = None
+        failed = False
         try:
-            db.execute("PRAGMA busy_timeout=5000")
-            db.execute("BEGIN IMMEDIATE")
+            target = self.path.as_uri() + "?mode=ro" if readonly else str(self.path)
+            db = sqlite3.connect(target, uri=readonly, timeout=timeout, isolation_level=None)
+            db.execute(f"PRAGMA busy_timeout={int(timeout * 1000)}")
+            db.execute("BEGIN" if readonly else "BEGIN IMMEDIATE")
             yield db
             db.execute("COMMIT")
-        except sqlite3.OperationalError as exc:
-            if db.in_transaction:
-                db.execute("ROLLBACK")
-            code = "STATE_BUSY" if "locked" in str(exc).lower() else "IO_ERROR"
-            raise ServiceError(code, "State database operation failed") from exc
-        except BaseException:
-            if db.in_transaction:
-                db.execute("ROLLBACK")
+        except BaseException as exc:
+            failed = True
+            # Cleanup must not replace the original failure, including interruption.
+            with suppress(sqlite3.Error):
+                if db is not None and db.in_transaction:
+                    db.execute("ROLLBACK")
+            if isinstance(exc, sqlite3.OperationalError):
+                code = "STATE_BUSY" if "locked" in str(exc).lower() else "IO_ERROR"
+                raise ServiceError(code, "State database operation failed") from exc
             raise
         finally:
-            db.close()
+            if db is not None:
+                try:
+                    db.close()
+                except sqlite3.Error as exc:
+                    if not failed:
+                        raise ServiceError("IO_ERROR", "State database close failed") from exc
 
     def physical_bytes(self):
         return sum(path.stat().st_size for path in self.root.iterdir() if path.is_file())
@@ -101,8 +113,19 @@ class Store:
         with self.transaction() as db:
             db.execute("DELETE FROM reservations WHERE id=?", (identity,))
 
+    def recover_operations(self, db, lease):
+        """Only a matching clean execution lease proves old op reservations idle."""
+        if lease.fd is None or not lease.safe or lease.project_identity != self.project_identity:
+            raise ServiceError(
+                "CLEANUP_FAILED", "Operation recovery requires a clean project lease"
+            )
+        db.execute(
+            "DELETE FROM reservations WHERE id GLOB 'op-*' "
+            "AND NOT EXISTS (SELECT 1 FROM jobs WHERE jobs.id=reservations.id)"
+        )
+
     def capacity_status(self):
-        with self.transaction() as db:
+        with self.transaction(readonly=True, timeout=CONTROL_WAIT) as db:
             artifacts = db.execute(
                 "SELECT COALESCE(SUM(LENGTH(CAST(text AS BLOB))+LENGTH(CAST(header AS BLOB))),0) FROM artifacts"
             ).fetchone()[0]
@@ -129,15 +152,15 @@ class Store:
             "note": "Physical bytes include logs and SQLite journal; payload counts are not additive",
         }
 
-    def job(self, identity):
-        with self.transaction() as db:
+    def job(self, identity, *, timeout=CONTROL_WAIT):
+        with self.transaction(readonly=True, timeout=timeout) as db:
             row = db.execute("SELECT body FROM jobs WHERE id=?", (identity,)).fetchone()
         if not row:
             raise ServiceError("JOB_NOT_FOUND", "Unknown job ID")
         return json.loads(row[0])
 
     def update_job(self, identity, **changes):
-        with self.transaction() as db:
+        with self.transaction(timeout=CONTROL_WAIT) as db:
             row = db.execute("SELECT body FROM jobs WHERE id=?", (identity,)).fetchone()
             if not row:
                 raise ServiceError("JOB_NOT_FOUND", "Unknown job ID")
@@ -150,13 +173,13 @@ class Store:
         return job
 
     def all_jobs(self):
-        with self.transaction() as db:
+        with self.transaction(readonly=True, timeout=CONTROL_WAIT) as db:
             return [json.loads(row[0]) for row in db.execute("SELECT body FROM jobs ORDER BY id")]
 
     def cancel(self, identity):
         from .contracts import TERMINAL
 
-        with self.transaction() as db:
+        with self.transaction(timeout=CONTROL_WAIT) as db:
             row = db.execute("SELECT body FROM jobs WHERE id=?", (identity,)).fetchone()
             if not row:
                 raise ServiceError("JOB_NOT_FOUND", "Unknown job ID")
@@ -168,7 +191,7 @@ class Store:
         return accepted, body
 
     def finish(self, identity, **changes):
-        with self.transaction() as db:
+        with self.transaction(timeout=CONTROL_WAIT) as db:
             body = json.loads(
                 db.execute("SELECT body FROM jobs WHERE id=?", (identity,)).fetchone()[0]
             )
@@ -229,7 +252,7 @@ class Store:
         return {"artifact_id": identity, "sha256": digest, "size_chars": len(text), "type": kind}
 
     def read_artifact(self, identity):
-        with self.transaction() as db:
+        with self.transaction(readonly=True, timeout=CONTROL_WAIT) as db:
             row = db.execute(
                 "SELECT type,text,digest,header FROM artifacts WHERE id=?", (identity,)
             ).fetchone()
@@ -262,7 +285,7 @@ class Store:
             return identity
 
     def read_cursor(self, identity, binding=None):
-        with self.transaction() as db:
+        with self.transaction(readonly=True, timeout=CONTROL_WAIT) as db:
             row = db.execute(
                 "SELECT binding,position,expires FROM cursors WHERE id=?", (identity,)
             ).fetchone()
@@ -276,8 +299,8 @@ class Store:
         """Bounded metadata only; no arguments, environment or raw diagnostics."""
         path = self.root / "calls.jsonl"
         try:
-            # Same SQLite writer lock serializes rotation across instances as well as threads.
-            with self.transaction():
+            # Log rotation has its own bounded OS lock, independent of SQLite writers.
+            with audit_lock(self.root / "calls.lock"):
                 previous = self.root / "calls.previous.jsonl"
                 for target in (path, previous):
                     if target.is_symlink() or target.resolve().parent != self.root.resolve():

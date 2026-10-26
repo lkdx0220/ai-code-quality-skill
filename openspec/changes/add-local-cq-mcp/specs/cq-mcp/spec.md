@@ -78,3 +78,50 @@ WHEN 第二宿主或Windows回收未测，THEN 保持候选/未完成，不以sk
 MUST提供只读分页runs/job索引，跨客户端发现同项目已发布run，旧/外部身份限制明确。256MiB/1000任务/10000游标是独立上限，不保证同时用满；同事务瞬态预留，按实际快照字节结算，不并发超卖；满时拒新增，保留既有读/取消控制和证据。
 #### Scenario: 跨会话与容量满
 WHEN 客户端无run_id记忆或state配额满，THEN 可列已有run并分页读取；新任务STATE_LIMIT，不删除幂等键后偷偷重跑。
+# 控制通道故障补充场景（2026-10-26）
+
+以下场景补充已有取消/期限/容量要求，不替换原验收矩阵。
+
+### Scenario: SQLite写锁不阻塞查询和错误审计
+- GIVEN独立进程持有state数据库写锁
+- WHEN查询已存在job，或提交类型错误的job_get
+- THEN只读查询成功，参数错误仍返回INVALID_ARGUMENT；受理返回各<1s，审计不再依赖数据库写锁。
+- AND独占锁使读取不能成功时，在控制预算内返回STATE_BUSY，不串行再等待5s审计。
+
+### Scenario: 本owner满盘取消与终态补记
+- GIVEN本服务运行的子树且state物理空间为0
+- WHEN调用job_cancel
+- THEN先发内存取消信号，<1s返回接纳；标记无法落盘时明确cancellation_persisted=false及warning。
+- AND子树回收确认后job_get可显示内存终态、cleanup=confirmed、state_persisted=false，不能只显示旧running。
+- WHEN释放空间并再次job_get或发起新执行
+- THEN终态及预留原子补记，旧证据不变；已完成任务不因迟到取消而重写。
+
+### Scenario: 跨实例与期限故障边界
+- GIVEN不同服务实例使用同state，取消标记可写时通过轮询送达；不可写时返回结构化失败
+- THEN不把另一实例任务伪称为本地信号接纳，不按外部PID直接回收。
+- AND独立数据库写锁/读锁竞争期间，执行循环的期限不被5s数据库轮询阻断。
+- AND服务在pending终态尚未落盘时崩溃，重启仍先核对进程域，再保守标interrupted，不重放任务。
+
+### Scenario: 启动转换遇瞬时写锁
+- GIVEN已受理且持项目执行权的queued任务，queued→running被独立写锁阻挡
+- THEN仅STATE_BUSY有限重试2s且受总期限限制，持久化running成功前不得spawn。
+- AND get/cancel不等待这段重试；取消或期限先到则无spawn并记录对应终态，IO_ERROR不重试。
+- AND启动等待计入执行预算，重试不额外延长总期限；持续锁竞争明确failed/STATE_BUSY。
+
+### Scenario: 二次存储错误不替换主错误
+- WHEN事务主操作失败且rollback/close又发生SQLite错误
+- THEN保留主业务错误或STATE_BUSY/IO_ERROR映射，不让二次OperationalError逃逸；进程中断仍可传播。
+- AND主操作成功但close失败时明确IO_ERROR，不假称成功。
+
+### Scenario: 已提交pending快照无需再次读取
+- WHEN job_get已成功补记pending终态及预留，但随后的存储读取不可用
+- THEN直接返回已提交快照的state_persisted=true，不把已确认提交误报为内存未落盘。
+
+### Scenario: gate/diff崩溃后的预留回收
+- GIVEN gate/diff已提交op-*预留，服务owner在finally前退出
+- WHEN下一次gate/diff或新key doctor/scan在同state接纳执行
+- THEN先持有同项目执行锁并确认旧进程域安全，再与新接纳同事务清理旧op-*并检查容量。
+- AND进程仍活动、残留树未清、owner意图损坏或锁仍被占用时不回收，不按年龄/PID消失判空闲。
+- AND仅清理本state无关联job的op-*；job预留/幂等键、已存artifact、cursor和其他state保持不变。
+- AND恢复事务失败整体回滚，重试可恢复；崩溃操作不重放、不伪造成功或空结果。
+- AND同key重用和查询不抢执行锁做清理；其他state的操作不隐式打开旧state，旧state下次执行再回收。

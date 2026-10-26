@@ -8,6 +8,7 @@ import threading
 from ..evidence import EvidenceError
 from ..runs import RunNotFoundError
 from .contracts import ERROR_CODES, SCHEMAS, ServiceError, envelope, fits, validate
+from .control import ControlPlane
 from .jobs import JobOperations
 from .queries import QueryOperations
 from .settings import Settings
@@ -18,6 +19,7 @@ class Service(JobOperations, QueryOperations):
     def __init__(self, settings: Settings):
         self.settings = settings
         self.store = Store(settings.state, settings.project_identity)
+        self.control = ControlPlane(self.store)
         self.tasks: set[asyncio.Task] = set()
         self.events: set[threading.Event] = set()
         self.closing = False
@@ -47,6 +49,8 @@ class Service(JobOperations, QueryOperations):
                 finally:
                     self.events.discard(event)
             response = envelope(operation, data, exit_code=exit_code)
+            if data.get("persistence_error"):
+                response["warnings"].append("Owner memory state only; state persistence failed")
             if not fits(response):
                 raise ServiceError(
                     "OUTPUT_TOO_LARGE",
@@ -105,6 +109,7 @@ class Service(JobOperations, QueryOperations):
             event = threading.Event()
             if interrupted or self.closing:
                 event.set()
+            self.control.track(job, event)
             self.events.add(event)
             task = asyncio.create_task(asyncio.to_thread(self._worker, job, lease, event))
             self.tasks.add(task)
@@ -120,17 +125,28 @@ class Service(JobOperations, QueryOperations):
             event.set()
         while self.tasks:
             await asyncio.gather(*list(self.tasks), return_exceptions=True)
+        try:
+            await asyncio.to_thread(self.control.reconcile)
+        except ServiceError:
+            pass  # Pending facts cannot survive exit; restart uses conservative interrupted recovery.
 
     def _dispatch(self, operation, arguments, event):
         if operation == "cq_job_get":
             return self._job_get(arguments["job_id"]), None
         if operation == "cq_job_cancel":
-            accepted, body = self.store.cancel(arguments["job_id"])
+            accepted, body = self.control.cancel(arguments["job_id"])
             return {
                 "job_id": body["job_id"],
                 "cancellation_requested": accepted,
                 "state": body["state"],
                 "cleanup": body["cleanup"],
+                "state_persisted": body["state_persisted"],
+                "cancellation_persisted": body.get("cancellation_persisted", False),
+                **(
+                    {"persistence_error": body["persistence_error"]}
+                    if body.get("persistence_error")
+                    else {}
+                ),
             }, None
         if operation == "cq_artifact_get":
             return self._artifact_get(arguments), None

@@ -158,8 +158,8 @@ SCHEMAS = {
 DESCRIPTIONS = {
     "cq_doctor": "Submit an asynchronous environment check. Wait for completion before scanning; holds the project lock.",
     "cq_scan_start": "Submit a local scan of a trusted project. Default five analyzers exclude security/architecture/tests. Missing selected tools are runtime gaps. pytest requires startup permission and explicit selection.",
-    "cq_job_get": "Read job state, cancellation, deadlines and results. Execution success is not quality acceptance.",
-    "cq_job_cancel": "Request cancellation; terminal state is published only after process-tree cleanup.",
+    "cq_job_get": "Read job state, cancellation, deadlines and results. state_persisted=false means owner-memory facts; polling retries pending terminal writes. Execution success is not quality acceptance.",
+    "cq_job_cancel": "Request cancellation; owner-local signals survive state write failure. Check cancellation_persisted and poll cleanup/state_persisted; accepted cancellation is not confirmed cleanup.",
     "cq_runs_list": "Discover local jobs and published runs. marker_present does not mean integrity verified.",
     "cq_findings_get": "Read bounded pages of findings. Oversize items have artifact references. Current freshness is opt-in.",
     "cq_diff": "Compare verified historical runs with explicit comparability. Does not write original audit files.",

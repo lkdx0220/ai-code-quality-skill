@@ -5,10 +5,65 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
+import time
+import weakref
+from contextlib import contextmanager
 from pathlib import Path
 
 from ..evidence import atomic_json
 from .contracts import ServiceError
+
+_AUDIT_GUARD = threading.Lock()
+_AUDIT_LOCKS: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+
+
+@contextmanager
+def audit_lock(path):
+    """Serialize log rotation across threads/processes, waiting at most 50ms for the lock."""
+    deadline = time.monotonic() + 0.05
+    key = os.path.normcase(str(path.resolve()))
+    with _AUDIT_GUARD:
+        mutex = _AUDIT_LOCKS.get(key)
+        if mutex is None:
+            mutex = threading.Lock()
+            _AUDIT_LOCKS[key] = mutex
+    if not mutex.acquire(timeout=max(0, deadline - time.monotonic())):
+        raise OSError("Audit thread lock is busy")
+    try:
+        with _audit_file_lock(path, deadline):
+            yield
+    finally:
+        mutex.release()
+
+
+@contextmanager
+def _audit_file_lock(path, deadline):
+    if path.is_symlink():
+        raise OSError("Audit lock cannot be a symlink")
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        if os.fstat(fd).st_size == 0:
+            os.write(fd, b"0")
+        while True:
+            try:
+                os.lseek(fd, 0, os.SEEK_SET)
+                if os.name == "nt":
+                    import msvcrt
+
+                    msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.005)
+        yield
+    finally:
+        os.close(fd)
 
 
 def process_identity(pid):
@@ -79,6 +134,7 @@ def domain_empty(owner):
 
 class ProjectLock:
     def __init__(self, project_identity):
+        self.project_identity = project_identity
         if os.name == "nt":
             root = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData/Local")))
         else:

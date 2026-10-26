@@ -9,18 +9,23 @@ import time
 from ..evidence import EvidenceError, inside, object_digest
 from ..runs import RunNotFoundError
 from .contracts import DEFAULT_ADAPTERS, TERMINAL, ServiceError, encode
+from .control import ControlPlane
 from .evidence import RunView, parse_output, unverified_header
 from .locking import ProjectLock, process_identity
 from .processes import execute
 from .settings import Settings
 from .store import Store, new_id
 
+START_RETRY_SECONDS = 2
+
 
 class JobOperations:
     settings: Settings
     store: Store
+    control: ControlPlane
 
     def _submit(self, operation, arguments):
+        self.control.reconcile()
         settings = self.settings
         adapters = sorted(arguments.get("adapters", DEFAULT_ADAPTERS))
         if "pytest" in adapters and not settings.allow_tests:
@@ -58,8 +63,13 @@ class JobOperations:
                     original = json.loads(row[1])
                     return self._accepted(original, True), None
                 identity = new_id("j")
+                if db.execute("SELECT 1 FROM reservations WHERE id GLOB 'op-*' LIMIT 1").fetchone():
+                    # Recover before quota admission, but never before domain validation.
+                    lease = ProjectLock(settings.project_identity).acquire()
+                    self.store.recover_operations(db, lease)
                 self.store.reserve(db, identity, job=True)
-                lease = ProjectLock(settings.project_identity).acquire()
+                if lease is None:
+                    lease = ProjectLock(settings.project_identity).acquire()
                 body = {
                     "job_id": identity,
                     "request_key": arguments["request_key"],
@@ -101,23 +111,58 @@ class JobOperations:
             "rerun_hint": "Use a new request_key to execute again" if reused else None,
         }
 
+    def _start_job(self, job, event, deadline):
+        """Persist running before spawn; retry only transient writer contention."""
+        identity = job["job_id"]
+        retry_until = min(deadline, time.monotonic() + START_RETRY_SECONDS)
+        last_error = None
+        while True:
+            if event.is_set() or self.control.cancelled(identity):
+                return "cancelled"
+            now = time.monotonic()
+            if now >= deadline:
+                return "timed_out"
+            if last_error is not None and now >= retry_until:
+                raise last_error
+            try:
+                started_at = time.time()
+                self.store.update_job(identity, state="running", started_at=started_at)
+                self.control.started(identity, state="running", started_at=started_at)
+                return "running"
+            except ServiceError as exc:
+                if exc.code != "STATE_BUSY":
+                    raise
+                last_error = exc
+            event.wait(max(0, min(0.03, retry_until - time.monotonic())))
+
     def _worker(self, job, lease, event):
         identity, settings = job["job_id"], self.settings
+        deadline = time.monotonic() + job["timeout_seconds"]
         state, result, error, code = "failed", None, None, None
         try:
-            if self.store.job(identity)["cancellation_requested"] or event.is_set():
+            if event.is_set() or self.control.cancelled(identity):
                 state = "cancelled"
                 return
             settings.check()
-            self.store.update_job(identity, state="running", started_at=time.time())
+            startup = self._start_job(job, event, deadline)
+            if startup != "running":
+                state = startup
+                return
+            if event.is_set() or self.control.cancelled(identity):
+                state = "cancelled"
+                return
             argv = self._job_command(job)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                state = "timed_out"
+                return
             captured = execute(
                 argv,
                 settings,
                 lease,
                 event,
-                job["timeout_seconds"],
-                cancelled=lambda: self.store.job(identity)["cancellation_requested"],
+                remaining,
+                cancelled=lambda: self.control.cancelled(identity),
             )
             code = captured["exit_code"]
             if captured["outcome"]:
@@ -139,7 +184,7 @@ class JobOperations:
                     {"code": "CLEANUP_FAILED", "message": "Process cleanup was not confirmed"},
                 )
             try:
-                self.store.finish(
+                self.control.finish(
                     identity,
                     state=state,
                     result=result,
@@ -189,7 +234,7 @@ class JobOperations:
         return {"run_header": view.header}
 
     def _job_get(self, identity):
-        body = self.store.job(identity)
+        body = self.control.get(identity)
         if (
             body["state"] not in TERMINAL
             and process_identity(body["owner_pid"]) != body["owner_birth"]
@@ -205,6 +250,11 @@ class JobOperations:
                         "code": "CLI_ERROR",
                         "message": "Previous server exited; this job is not restarted",
                     },
+                )
+                body.update(
+                    state_source="state_store",
+                    state_persisted=True,
+                    cancellation_persisted=body["cancellation_requested"],
                 )
             finally:
                 lease.release(clean=lease.safe)

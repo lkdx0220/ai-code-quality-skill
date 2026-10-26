@@ -91,6 +91,15 @@ gate verdict 的确定顺序：
 
 state-dir使用SQLite保存任务、request_key唯一约束、artifact/cursor登记和瞬态容量reservation；一个state绑定一个规范化真实项目，不匹配报STATE_PROJECT_MISMATCH。请求摘要含operation、排序adapter、有效期限、冻结配置摘要。BEGIN IMMEDIATE短事务内：查重 → 验证并预留容量 → 非阻塞项目锁 → 插入job及唯一key → commit → 回应；任一步失败rollback释放本次预留/锁。事务等待上限5s，STATE_BUSY不能冒称去重成功。同台账多实例/线程持锁语义同时由进程内互斥与OS锁实现，不能依赖flock对同进程一定互斥。
 
+2026-10-26 op预留恢复补充：gate/diff只在持有同项目执行锁期间创建op-*瞬态预留。
+新gate/diff取得执行锁且旧进程域核验通过后，在预留新操作的同一事务内回收当前state旧op-*；
+doctor/scan新key接纳若发现op-*，须先取得执行锁并通过旧域核验、回收，再做容量检查，
+避免泄漏把可恢复state永久挡在STATE_LIMIT。无op-*的job接纳仍保留原顺序；同key重用不触发执行或清理。
+恢复方法必须验证lease仍持有、safe且项目身份匹配；job关联预留、artifact/cursor及其他state不删除。
+不得以时间、PID消失、OS锁已释放或新实例启动本身作为回收依据；PROJECT_BUSY/CLEANUP_FAILED时不改预留。
+回收与新接纳事务整体提交，失败整体回滚，之后可再次尝试；不从旧owner记录追踪打开其他state数据库。
+旧版本op-*无需迁移即可按此规则处理；操作崩溃不生成成功结果，也不自动重放gate/diff。
+
 扫描job在受理事务中预生成mcp-<UUID>完整run_id，以--run-id交核心。cq_scan_start返回job_id/run_id；spawn前job_get的run_state=pending、publication=incomplete、created_at=null，未建run目录；核心开始写后writing，验证.complete.json和依赖摘要后才published。pending ID不等于已有可读取结果。失败轮保留ID和实际目录状态，不重用目录。
 
 任一终态使用同key同参都返回原job、reused=true、terminal_state及rerun_hint=使用新key；换key才重新执行。跨state-dir仅互斥、不共享幂等。项目忙的全新请求不落“已接受job”。进程崩溃发生于commit后spawn前时，恢复标interrupted，不偷偷重跑；SQLite恢复与任务状态需交叉验证。
@@ -102,6 +111,34 @@ OS退出自动释放锁不等于子树已退出。用户锁旁owner/启动意图
 doctor/scan全生命周期、gate/diff及显式inputs检查持执行锁；查询/cancel/列表不争锁。doctor会启动工具/插件探测，保留串行资源和残留归属保证；scan活动时doctor报PROJECT_BUSY，不承诺并行体检。docs推荐doctor完成后scan。只读项目根及audits也可gate/diff，前提用户锁目录/state可写，子进程不需项目缓存写入；不修改项目.gitignore。scan仍须audits可写，分析器自身缓存写入另披露。
 
 状态 queued→running→completed/failed/cancelled/timed_out/interrupted/cleanup_failed。cancellation_requested为bool；queued取消要在spawn前再检查；running取消确认回收后才变cancelled。完成与取消用事务记录事实先后，已完成不可追改取消。cancel不等执行锁，循环必须能服务job_get；验收时这两者的受理返回<1s，不等子树实际回收。
+
+2026-10-26控制通道修订（不放宽上述期限）：只读状态使用只读SQLite连接/BEGIN，不抢写锁；
+控制读写的SQLite busy等待各至多100ms。审计轮转使用独立OS文件锁，竞争等待至多50ms，
+失败保留warning，不再等待SQLite写锁。期限循环先检查取消/总期限，跨实例取消轮询使用
+零busy等待；存储忙/不可用不阻断本进程的内存信号或期限判断。文件系统系统调用本身被OS
+无限挂起不在busy等待保证内，正常受控锁竞争/ENOSPC仍必须通过<1s验收。
+
+queued→running必须在spawn前成功持久化。仅该转换遇STATE_BUSY时进行有限重试，
+重试窗口2s且不超过本job剩余总期限；每次仍用100ms busy预算，轮次间用可取消事件等待。
+重试不持owner控制互斥，不阻塞get/cancel；IO_ERROR不重试。持续竞争返回failed/STATE_BUSY，
+取消或总期限先到则分别cancelled/timed_out，均不得spawn。worker开始即计总预算，
+启动等待从传给执行循环的预算扣除；进程创建/OS调度及回收宽限不承诺硬实时。
+事务主错误发生后，rollback/close的SQLite二次错误不得替换它；没有主错误的close失败明确IO_ERROR。
+
+本服务按job_id登记worker事件；本服务持有的任务取消先发内存信号，再尝试持久化。
+任务级互斥串行化本地取消与终态选择：先选定终态的不追改，先收到取消的完成不得记completed。
+跨实例只通过已持久化标记通知，不基于外部PID发信号；写入失败返回STATE_BUSY/IO_ERROR，
+不虚称已送达。queued取消在创建进程前再次检查。内存接纳但持久化失败的取消仍ok=true，
+返回cancellation_requested=true、cancellation_persisted=false、state_persisted=false、
+persistence_error及warning；这不代表清理已完成。
+
+worker回收后终态写入失败，将脱敏终态事实保留在本进程pending记录，不抛弃记录或仅返回旧running。
+job_get返回state_source=owner_memory、state_persisted=false、persistence_error及warning，
+cleanup仅按实际回收事实记录。查询该job、新执行接纳前及正常关闭时重试终态与预留结算，
+事务成功后state_persisted=true、state_source=state_store。没有后台无限重试；空间恢复后需一次
+上述触发。关闭时仍失败的内存事实不能跨进程保留，重启沿用确认进程域后interrupted，不能声称
+找回丢失的精确终态。另一实例只能观察持久化行，不能读取本owner的内存事实。
+pending补记成功时直接使用finish返回的已提交快照，不追加查询再把提交事实误标未持久化。
 
 Windows须在子进程执行用户代码前纳入Job Object（CREATE_SUSPENDED→assign→resume等经验证方式），所有CLI结束后都核查并回收残留后代，包括adapter单工具超时路径。Linux进程组用于正常取消/超时/EOF；服务被SIGKILL后不宣称自动回收整棵树，重启检测残留并阻止新执行直到确认清理；不能仅凭OS锁已释放就扫描。断电/存储损坏不能保证任务状态完整，宁可interrupted/unknown。T07/T08用真实进程验收这些平台区别。
 

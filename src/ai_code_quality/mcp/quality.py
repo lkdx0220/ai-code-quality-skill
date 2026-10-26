@@ -57,6 +57,7 @@ class QualityOperations:
         reservation = new_id("op")
         try:
             with self.store.transaction() as db:
+                self.store.recover_operations(db, lease)
                 self.store.reserve(db, reservation)
             view = RunView(self.settings.project, args["run_id"])
             base = (

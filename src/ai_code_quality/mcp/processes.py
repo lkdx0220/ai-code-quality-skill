@@ -204,6 +204,15 @@ def _cleanup(process, threads, lease):
 def execute(argv, settings, lease, cancel, timeout, *, cancelled=lambda: False):
     from .store import new_id
 
+    if cancel.is_set() or cancelled():
+        return {
+            "exit_code": None,
+            "outcome": "cancelled",
+            "stdout": b"",
+            "stderr": b"",
+            "pid": None,
+            "seconds": 0,
+        }
     domain = new_id("cq-mcp")
     lease.prepare(domain, settings.state)
     kind = WindowsProcess if os.name == "nt" else PosixProcess
@@ -228,6 +237,9 @@ def execute(argv, settings, lease, cancel, timeout, *, cancelled=lambda: False):
             thread.start()
             readers.append(thread)
         while process.poll() is None:
+            if time.monotonic() - started >= timeout:
+                outcome = "timed_out"
+                break
             if cancel.is_set() or cancelled():
                 outcome = "cancelled"
                 break

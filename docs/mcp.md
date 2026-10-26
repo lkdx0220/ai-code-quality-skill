@@ -89,7 +89,18 @@ scan 写项目 audits/ 及分析器缓存；doctor 启动探测子进程。gate/
 state 必须在项目树外，含 SQLite 台账/快照/游标及轮转日志。state 只绑定一个项目。
 总容量 256 MiB，预留 16 MiB 控制空间；每次执行临时预留 9 MiB，快照结算扣减，完成释放余额。
 独立上限 1000 jobs / 10000 cursors（TTL 24 小时）；容量先到也会拒绝，不能保证用满计数上限。
-读已有结果/取消保留。已确认清理的任务释放预留，cleanup_failed 保留阻断证据。
+逻辑配额耗尽时保留读已有结果/取消。已确认清理的任务释放预留，cleanup_failed 保留阻断证据。
+16MiB 是服务配额余量，不是操作系统保留空间。本服务持有的任务有独立内存取消信号：
+即使 state 无法写入也先请求停止，再尝试落盘。此时取消可返回 ok=true、
+cancellation_requested=true、cancellation_persisted=false、persistence_error 和 warning；
+这只说明信号已接纳，须继续轮询 cleanup。跨实例取消仍须写数据库，失败返回结构化错误，
+不虚称信号已送达，也不根据外部 PID 直接杀进程。
+
+终态写库失败时，本 owner 保留脱敏事实；job_get 可返回 state_source=owner_memory、
+state_persisted=false 及 warning。cleanup=confirmed 表示实际子树已空，不能将它等同于
+终态已持久化。恢复空间后，查询该 job、新执行接纳前或正常关闭时会重试终态/预留原子结算。
+没有后台无限重试；需要上述触发之一。若服务在补记前退出，内存事实无法保留，重启仍按
+原进程域检查保守记 interrupted；另一实例只能看到持久化行。
 
 项目锁位于同用户固定缓存：Windows `%LOCALAPPDATA%/cq-mcp/locks`，
 Linux `~/.cache/cq-mcp/locks`，按规范项目路径哈希；不写项目根，不改变项目 .gitignore。
@@ -107,8 +118,30 @@ doctor 600s；scan 默认 3600s，启动 --max-scan-seconds 范围 1..86400，�
 输入监视默认 60s，可用 --inputs-timeout-seconds 调至 1..600；gate/diff 核心计算 60s，清理宽限 5s。
 gate 当前验证的默认最坏预算约 125s，最大配置约 665s；客户端至少再留 15s 协议余量。
 超时、取消、未完成产物均不伪造空结果。实际宿主长调用/断开行为仍待验证。
+控制读取使用只读连接，不再抢 SQLite 写锁；控制读写的 busy 等待各至多100ms。
+审计使用 state/calls.lock 的独立线程/OS互斥，锁竞争最多等待50ms，失败有 warning。
+worker 跨实例取消轮询不等待数据库锁，总期限不再被5s轮询挡住。本轮针对 RESERVED/EXCLUSIVE
+锁及 Linux 实际 ENOSPC 验证受理<1s；操作系统将文件系统调用无限挂起不在这个等待预算内。
+任务启动时必须先将 running 写入台账，再启动子进程。这个转换遇短暂 STATE_BUSY 会重试，
+窗口2s且受任务剩余期限限制；等待计入执行预算，期间仍可查询/取消。持续竞争失败、
+IO_ERROR直接失败；取消或期限先到时不启动命令。终态补记成功直接返回已提交快照，
+事务回滚/关闭的二次SQLite错误不覆盖原错误。
+
+gate/diff进程崩溃留下的瞬态容量预留，会在同state下一次gate/diff或新key doctor/scan
+接纳时恢复。服务先取得项目执行锁并确认旧进程域已清理，再与新接纳同事务回收旧op-*；
+锁被占用、残留树仍活动或owner记录不明时保留预留并报错。不会按时间或PID消失直接释放，
+也不会删除旧结果、任务/幂等键、游标或其他state。只做查询、同key重用和服务启动不触发回收；
+其他state下的操作不扫描旧数据库，旧state下次执行时再恢复。失败的恢复事务可以重试，
+崩溃的gate/diff不会自动重放，也不因此得到成功结论。
 
 当前开发证据覆盖 Windows / Python 3.13 与 Linux / Python 3.11；已验证真实进程树回收、
 服务强杀恢复、两平台 SDK stdio 和边界回归，并有独立全新 venv 的 wheel/sdist 构建安装记录。
-Linux 产品级进程恢复、第二个真实宿主、只读 ACL 与完整容量压力矩阵仍待验。
+Linux Service 强杀恢复及普通 UID 只读权限子集、Claude Code/ZCode/Kimi Code 1.1.3
+连通性子集已通过；Windows/Linux 的任务及游标计数上限、最大快照容量、配额竞争和
+耗尽时查询/取消压力已验（见 openspec change 的 capacity-validation.md）。
+本轮另补 Windows/Linux 五个真实 stdio owner 强杀窗口、SQLite/原子写入故障，
+以及 Linux 两项实际 32MiB tmpfs 耗尽；方法和失败轮见
+`openspec/changes/add-local-cq-mcp/fault-recovery-validation.md`（首次暴露两项差距的历史批次）。
+后续修复与写锁/满盘优先回收/终态补记复验见同目录 `control-channel-fixes.md`。
+完整宿主失败/大结果/长调用/断开、其余崩溃排列、容量混合故障和 Windows 只读 ACL 仍待验。
 这是可供独立审核的实现候选，不是公开发布或全验收通过声明。CLI/Skill/DSH 可继续作为回退入口。
