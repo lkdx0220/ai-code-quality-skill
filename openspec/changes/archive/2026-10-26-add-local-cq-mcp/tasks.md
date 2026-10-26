@@ -6,12 +6,12 @@
 - [x] Claude/Kimi 两真实宿主九工具、真实失败/缺工具、大结果、60s核心截止、5s客户端取消和服务强杀恢复。
 - [x] Windows真实ACL/Linux普通UID只读、两平台混合容量叠加写锁、state迁移与owner守卫、进程边界及可调新鲜度期限。
 - [x] 产品固定为4a349686的冻结包，CI九项全绿；本轮仅验收和文档，没有产品修改或包重建。
-- [ ] 确认发布渠道和最终版本；公开固定版本安装复验后同步规格并归档change。
+- [x] 用户确认PyPI/GitHub及0.6.0rc1，公开发布与两平台固定版本安装复验完成；同步现状规格并按日期归档change。
 
 2026-10-26 用户已确认 PyPI + GitHub Releases、先发布0.6.0rc1。
 新增手动 publish-pypi.yml，GitHub环境名pypi，以OIDC发布；只下载v0.6.0rc1的两份
-冻结资产并校验大小/SHA，不自动构建、打tag或触发上传。用户仍需在PyPI账号配置pending publisher；
-工作流准备不代表已上传。发布后补公开固定版本安装复验再关闭发布项。
+冻结资产并校验大小/SHA，不自动构建、打tag或触发上传。用户随后完成PyPI pending publisher配置，
+手动发布成功；两平台core/wheel/sdist及实际Windows uvx公开安装复验通过，见[发布记录](publication-0.6.0rc1.md)。
 
 下方阶段记录保留其当时结果；其中“仍待验/未commit”等历史表述不代表上述最新状态。
 完成范围限最终矩阵注明的配置，不以skip、SDK回环或静态审核替代实际宿主/故障验收。
@@ -83,8 +83,8 @@
 ## 4. 发布
 - [x] 本候选开发矩阵证据完成，T01–T28逐项索引见final-matrix；Windows/Python3.13、Linux/Python3.11安装/故障/权限/容量，Claude/Kimi真实宿主完成。必验不以skip顶替，不声称所有客户端/协议、Windows真实满卷或最大665s宿主等待已测。
 - [x] 0.6.0rc1具体候选的构建内容、许可证、依赖闭包、版本、README/工具面复验通过；内部change记录不入sdist，LICENSE/NOTICE入包。两平台wheel/sdist四组SDK九工具、质量失败/缺工具/取消和45文件来源核对通过，见release-readiness-0.6.0rc1.md。此勾选只覆盖本候选包预检，不关闭完整发布矩阵或批准渠道。
-- [ ] 用户可审阅候选包与发布说明后确认渠道；公开固定版本安装复验与回退说明。
-- [ ] 验收完成后同步现状规格并归档change。
+- [x] 用户审阅后确认PyPI/GitHub渠道及0.6.0rc1；公开固定版本安装复验与回退说明完成，发布工作流40283479098成功。
+- [x] 验收完成后同步openspec/specs/cq-mcp/spec.md，并归档至changes/archive/2026-10-26-add-local-cq-mcp。
 
 ## 2026-10-26 验收增量
 

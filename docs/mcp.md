@@ -1,4 +1,4 @@
-# 本地 cq MCP（main 分支候选）
+# 本地 cq MCP（0.6.0rc1 公开预发布）
 
 cq MCP 把现有 CLI 接入本地 stdio 客户端。检测能力来自 ruff、mypy、radon、
 vulture、pytest、import-linter、DeepSec；MCP 提供任务生命周期和证据约束，不新增检测算法。
@@ -9,20 +9,22 @@ vulture、pytest、import-linter、DeepSec；MCP 提供任务生命周期和证�
 显式选择 DeepSec 却缺工具，或显式选择 import-linter 却没配置，是 `cannot_judge`。
 这表示证据不足，不能解读为服务损坏或质量通过。
 
-## 候选启动
+## 安装与启动
 
 声明的可选依赖为 `mcp==2.3.0`，Windows 另需 `pywin32==312`。核心 CLI 仍无运行时依赖。
-实现及阶段验收已合入main；MCP尚未单独发布版本，旧v0.5.2标签不包含本功能。
-当前发布预检版本为0.6.0rc1，尚未公开发布；见[候选说明](releases/cq-mcp/0.6.0rc1.md)
+MCP已随[PyPI 0.6.0rc1](https://pypi.org/project/ai-code-quality/0.6.0rc1/)公开预发布，旧v0.5.2标签不包含本功能。
+见[版本说明](releases/cq-mcp/0.6.0rc1.md)
 及[依赖许可说明](third-party.md)。
-可安装已通过源码A门的提交；不表示已上传PyPI：
+可在独立虚拟环境安装：
 
 ```text
-python -m pip install "ai-code-quality[mcp] @ git+https://github.com/lkdx0220/ai-code-quality-skill.git@4a3496860a163955ac4875048e49c4f1cec4a9d6"
+python -m pip install "ai-code-quality[mcp]==0.6.0rc1"
 cq-mcp --project /absolute/trusted-project --state-dir /absolute/cq-state --tool-python /absolute/tool-python
 ```
 
 源码环境等价入口为 `python -m ai_code_quality.mcp`（须配置 src 导入路径）。
+也可用 `uvx --from "ai-code-quality[mcp]==0.6.0rc1" cq-mcp` 加同样启动参数；
+Windows公开无缓存启动已实测，首次下载/安装包含在等待中，建议客户端startup timeout至少60s。
 服务解释器应有 MCP extra，`--tool-python` 是已有分析工具所在解释器；服务不自动安装工具。
 优先级：显式参数 > 启动 `CQ_PYTHON` > 项目 cq.toml/.cq.toml > 服务解释器。
 启动不遍历解释器或运行 doctor。环境与执行配置冻结，配置改变报 `CONFIG_CHANGED`，需重启。
@@ -147,25 +149,26 @@ Linux Service 强杀恢复及普通 UID 只读权限子集、Claude Code/ZCode/K
 耗尽时查询/取消压力已验（见 openspec change 的 capacity-validation.md）。
 本轮另补 Windows/Linux 五个真实 stdio owner 强杀窗口、SQLite/原子写入故障，
 以及 Linux 两项实际 32MiB tmpfs 耗尽；方法和失败轮见
-`openspec/changes/add-local-cq-mcp/fault-recovery-validation.md`（首次暴露两项差距的历史批次）。
+`openspec/changes/archive/2026-10-26-add-local-cq-mcp/fault-recovery-validation.md`（首次暴露两项差距的历史批次）。
 后续修复与写锁/满盘优先回收/终态补记复验见同目录 `control-channel-fixes.md`。
-后续Claude/Kimi宿主定向验收见[宿主记录](../openspec/changes/add-local-cq-mcp/host-acceptance-ab3d484.md)：
+后续Claude/Kimi宿主定向验收见[宿主记录](../openspec/changes/archive/2026-10-26-add-local-cq-mcp/host-acceptance-ab3d484.md)：
 200条finding分页、72124字符占位分块、233435字符diff快照、35秒响应延迟及主动取消通过。
 Claude宿主强杀后任务cancelled、子树回收；Kimi服务强杀后宿主自动重连得到interrupted，任务不重跑。
 这些场景不代表两个宿主各自覆盖所有断开组合，35秒也不代表核心计算性能。
 0.6.0rc1候选源码A门exit0，Windows452通过/16默认及平台跳过、Linux完整回归458通过/10跳过，
-覆盖率84.08%；7工具ok，import-linter无契约配置skipped。此前参数修订见[A门记录](../openspec/changes/add-local-cq-mcp/a-gate-validation.md)。
+覆盖率84.08%；7工具ok，import-linter无契约配置skipped。此前参数修订见[A门记录](../openspec/changes/archive/2026-10-26-add-local-cq-mcp/a-gate-validation.md)。
 候选wheel/sdist的两平台四组干净安装均完成SDK九工具、真实ruff质量失败、缺工具cannot_judge和pytest子树取消；
 源码逐文件与wheel一致。该SDK回环不是新的真实宿主验收。
 上述宿主记录绑定历史 ab3d484；本候选的新验收见
-[最终矩阵](../openspec/changes/add-local-cq-mcp/final-matrix-0.6.0rc1.md)：
+[最终矩阵](../openspec/changes/archive/2026-10-26-add-local-cq-mcp/final-matrix-0.6.0rc1.md)：
 Claude Code 2.1.203、Kimi Code 桌面1.1.3.0（wire自报0.0.0）均实际调用九工具，
 覆盖真实质量失败、缺工具、合成大结果、60s核心截止、5s客户端取消及服务强杀恢复。
 Windows真实只读ACL、Linux普通UID只读、两平台混合容量叠加SQLite锁、保留旧state迁移和
 owner守卫也已通过；故障脚本边界与首轮失败完整记录。产品仍固定为4a349686的0.6.0rc1包。
-开发验收完成，发布渠道、公开固定版本安装复验与规格归档尚待进行。
+开发验收和PyPI公开固定版本安装复验已完成，发布与规格收尾见
+[发布记录](../openspec/changes/archive/2026-10-26-add-local-cq-mcp/publication-0.6.0rc1.md)。
 CLI/Skill/DSH仍可作为回退入口；没有将所有客户端/协议或最大665s等待声明为已验证。
 
 CI 分别验证无 MCP SDK 的核心安装，以及安装 MCP extra 后的 Ubuntu/Python 3.11、3.13
 和 Windows/Python 3.13；两平台自扫也安装 extra。SDK 依赖测试在核心环境明确跳过，
-不计为 MCP 通过。接线修订及本地回归见[CI记录](../openspec/changes/add-local-cq-mcp/ci-validation.md)。
+不计为 MCP 通过。接线修订及本地回归见[CI记录](../openspec/changes/archive/2026-10-26-add-local-cq-mcp/ci-validation.md)。

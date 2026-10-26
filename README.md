@@ -14,17 +14,17 @@
 > **默认关闭**：项目根放 `.specdrift.toml` 才启用，未配置的仓库行为逐项不变（CI 专项回归锁死）。
 > 👉 详见下方 [spec-drift 章节](#spec-driftv020--可选spec-驱动项目的防漂移门)。
 
-## 本地 MCP（main 分支候选）
+## 本地 MCP（0.6.0rc1 公开预发布）
 
 MCP 实现及验收记录已合入 `main`，提供 **9 个本地 stdio 工具**：环境体检、异步扫描、
 任务查询/取消、运行发现、finding 分页、gate、diff 和 artifact 分块读取。
 扫描在使用者自己的电脑执行，无需作者提供服务器；目标项目必须可信，分析器和测试可能执行代码。
 MCP 不开放修改源码、自动安装分析器、commit 或 push 工具。
 
-安装包含 MCP 的已验证源码提交（Python ≥ 3.11）：
+从 PyPI 安装固定预发布版本（Python ≥ 3.11）：
 
 ```bash
-python -m pip install "ai-code-quality[mcp] @ git+https://github.com/lkdx0220/ai-code-quality-skill.git@4a3496860a163955ac4875048e49c4f1cec4a9d6"
+python -m pip install "ai-code-quality[mcp]==0.6.0rc1"
 cq-mcp --project /absolute/trusted-project --state-dir /absolute/cq-state --tool-python /absolute/tool-python
 ```
 
@@ -52,7 +52,7 @@ Windows 的 `command` 示例为 `C:/path/to/mcp-venv/Scripts/python.exe`。
 pytest 须同时设置启动选项 `--allow-test-execution` 并在调用中显式选择。
 安装、九工具参数、结果判定和客户端期限配置见[使用指南](docs/mcp.md)。
 
-**当前验收状态**（2026-10-26；0.6.0rc1 开发验收完成，尚未公开发布）：
+**当前验收状态**（2026-10-26；0.6.0rc1 已公开预发布，公开安装复验完成）：
 
 | 范围 | 结果与证据 |
 |---|---|
@@ -66,17 +66,17 @@ pytest 须同时设置启动选项 `--allow-test-execution` 并在调用中显�
 
 60 秒场景运行受控核心进程，5 秒场景由客户端超时发起取消；不是自然计算性能基准。
 7 个分析工具正常；import-linter 因本仓无架构契约配置跳过，不计通过。
-详见 [A 门记录](openspec/changes/add-local-cq-mcp/a-gate-validation.md)、
-[最终候选验收](openspec/changes/add-local-cq-mcp/final-matrix-0.6.0rc1.md)与
-[完整任务表](openspec/changes/add-local-cq-mcp/tasks.md)。本轮宿主绑定 `4a349686` 的冻结候选包；
+详见 [A 门记录](openspec/changes/archive/2026-10-26-add-local-cq-mcp/a-gate-validation.md)、
+[最终候选验收](openspec/changes/archive/2026-10-26-add-local-cq-mcp/final-matrix-0.6.0rc1.md)与
+[完整任务表](openspec/changes/archive/2026-10-26-add-local-cq-mcp/tasks.md)。本轮宿主绑定 `4a349686` 的冻结候选包；
 历史 `ab3d484` 验收另存，不混用版本声明。
 
-MCP 尚未单独发布版本；旧 `v0.5.2` 标签不含 MCP，请使用上述提交或源码 `main`。
-接下来确认发布渠道、公开固定版本安装复验并归档规格；VS Code 未记为已通过。
+MCP 已随 [PyPI 0.6.0rc1](https://pypi.org/project/ai-code-quality/0.6.0rc1/) 和
+[GitHub 预发布](https://github.com/lkdx0220/ai-code-quality-skill/releases/tag/v0.6.0rc1) 分发。
+两平台公开 wheel/sdist 安装、core-only 与 Windows uvx 启动复验通过；VS Code 未记为已通过。
 
-发布预检使用 **`0.6.0rc1` 候选版本**，避免与旧版 `0.5.2` 的包身份混淆；
-尚未创建该版本的 tag、GitHub Release 或 PyPI 版本。
-候选范围、安装与回退见[候选说明](docs/releases/cq-mcp/0.6.0rc1.md)，
+这是 **`0.6.0rc1` 预发布版**，旧 `v0.5.2` 标签不含 MCP；尚未发布 `0.6.0` 稳定版。
+发布范围、安装与回退见[版本说明](docs/releases/cq-mcp/0.6.0rc1.md)，
 MCP 安装依赖及 pywin32 多组件许可见[第三方许可](docs/third-party.md)。
 
 <details>
@@ -506,7 +506,7 @@ finding schema（与交接方案 §6 一致）：
 
 - `python -m pytest tests`：核心、CLI、spec-drift 与 MCP 测试。MCP 测试需可选依赖；
   部分集成测试还需已有分析器、对应操作系统或显式故障/压力测试开关，跳过不计通过。
-- 最新 A 门及平台测试计数见[验收记录](openspec/changes/add-local-cq-mcp/a-gate-validation.md)；
+- 最新 A 门及平台测试计数见[验收记录](openspec/changes/archive/2026-10-26-add-local-cq-mcp/a-gate-validation.md)；
   真实宿主与发布矩阵分开记录，不用单测通过代替客户端验收。
 - `tests/fixtures/demo-flask-api/`：故意埋了安全/类型/复杂度/死代码/格式/测试问题的 fixture 仓库，
   用于验收"六类问题一次全报出"。
@@ -555,8 +555,8 @@ cq spec-gate --mode=hard --range main...feature    # 显式区间（PR 场景）
 - ~~**Phase 3**~~ ✅ `cq fix`（分批修复计划 + 显式 --apply）；DSH `SKILL.md`（已安装
   `~/.dsh/skills/ai-code-quality/`）+ Codex/Claude/Cursor 薄适配文件（见 `agent-adapters/`）。
 - ~~**v0.2.0 · spec-drift 一期**~~ ✅ `cq spec-gate` + `cq waiver`（外部需求单驱动，含兼容性红线回归）。
-- **本地 MCP 候选** ✅ 实现已合入 main：九工具、异步任务、进程域/恢复、证据校验与分页；
-  两个真实宿主定向验收及 A 门通过。正式版本发布以[剩余验收项](openspec/changes/add-local-cq-mcp/tasks.md)为准。
+- **本地 MCP 0.6.0rc1** ✅ PyPI/GitHub 公开预发布：九工具、异步任务、进程域/恢复、证据校验与分页；
+  双宿主、A门和公开安装复验通过；[现状规格](openspec/specs/cq-mcp/spec.md)。
 - **后续**：SonarCloud/SonarQube 接入、自研确定性 AI slop 规则、可选 AI review 与 toolkit 插件。
 - **多语言（未排期）**：Java（Checkstyle/SpotBugs/PMD/JUnit+JaCoCo/ArchUnit adapter 集 + 语言探测
   + Java 符号提取）等，按真实需求立项；spec-gate/waiver/promote 已语言无关可直接用。
