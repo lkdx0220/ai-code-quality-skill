@@ -278,7 +278,7 @@ def payload(response):
 def test_real_stdio_crash_recovers_operations_without_losing_evidence(
     service, tmp_path, monkeypatch, operation, phase, trigger, record_property
 ):
-    pytest.importorskip("mcp")
+    pytest.importorskip("mcp.client.session")
     from mcp import ClientSession, StdioServerParameters, stdio_client
     from mcp.shared.exceptions import MCPError
 

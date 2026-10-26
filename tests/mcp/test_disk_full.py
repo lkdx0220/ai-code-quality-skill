@@ -17,7 +17,7 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.mark.parametrize("scenario", ["state", "project"])
 def test_bounded_real_enospc(scenario, tmp_path, record_property):
-    pytest.importorskip("mcp")
+    pytest.importorskip("mcp.client.session")
     assert os.geteuid() == 0, "Run only in the isolated root-capable Linux acceptance environment"
     root = Path("/var/tmp") / ("cq-disk-full-" + uuid.uuid4().hex)
     fixture = Path(__file__).parent / "fixtures/full_disk_runner.py"

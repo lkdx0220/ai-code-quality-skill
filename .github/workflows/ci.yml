@@ -33,17 +33,25 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - {os: ubuntu-latest, python-version: "3.11"}
-          - {os: ubuntu-latest, python-version: "3.13"}
-          - {os: windows-latest, python-version: "3.13"}
+          - {os: ubuntu-latest, python-version: "3.11", package: "."}
+          - {os: ubuntu-latest, python-version: "3.11", package: ".[mcp]"}
+          - {os: ubuntu-latest, python-version: "3.13", package: ".[mcp]"}
+          - {os: windows-latest, python-version: "3.13", package: ".[mcp]"}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install -e . pytest pytest-cov
+      - run: pip install -e "${{ matrix.package }}" pytest pytest-cov
+      - name: Verify MCP SDK installation
+        if: matrix.package == '.[mcp]'
+        run: python -c "from mcp import ClientSession, StdioServerParameters, stdio_client; import ai_code_quality.mcp.server"
+      - name: Verify core-only installation
+        if: matrix.package == '.'
+        run: python -c "from importlib.metadata import distributions; assert 'mcp' not in {d.metadata['Name'].lower() for d in distributions()}"
       - name: pytest
         run: python -m pytest tests -q --cov=ai_code_quality --cov-report=term
 
@@ -88,6 +96,7 @@ jobs:
   dogfood:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
@@ -95,7 +104,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - run: pip install -e . ruff mypy radon vulture pytest pytest-cov
+      - run: pip install -e ".[mcp]" ruff mypy radon vulture pytest pytest-cov
       - name: 先跑一遍测试套件（复现"本地逐条复现 CI"的使用路径，留下 tmp 会话目录）
         run: python -m pytest tests -q
       - name: cq scan（自扫）

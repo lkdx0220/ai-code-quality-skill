@@ -310,7 +310,7 @@ def test_job_dedup_policy_and_terminal_retry(settings):
 
 
 def test_stdio_initialize_nine_tools_and_valid_domain_result(settings):
-    pytest.importorskip("mcp")
+    pytest.importorskip("mcp.client.session")
     from mcp import ClientSession, StdioServerParameters, stdio_client
 
     async def scenario():

@@ -104,6 +104,8 @@ r03规格、阶段1原型、核心和服务候选分开记录。核心317项加�
 
 ## A门收尾（2026-10-26，最新源码状态）
 
+- T01/T17 CI增量：旧workflow缺MCP extra且SDK存在性检查被tests/mcp namespace误导，远端19项导入失败。现拆分核心无依赖与带extra三平台矩阵，两平台dogfood安装extra。Windows核心351通过/113跳过、MCP452通过/12跳过；Linux MCP454通过/10跳过，均无失败。远端复验按修订提交Actions另记，见ci-validation.md；不因此关闭完整发布矩阵。
+
 - [x] 两项既有A门阻断定向处理：注释假凭据移除；内部参数数组校验/复制和POSIX显式shell=False。新增12项真实参数边界测试；未改检测规则、阈值或.cq。
 - [x] Windows自扫452通过/12默认跳过；Linux受影响进程/服务/崩溃恢复87通过/1 Windows专用跳过；静态全过。覆盖率4047/4811=84.1197%；diff新增0/消除2/仍存在5/豁免1，diff和A门均exit0。
 - import-linter无契约配置仍skipped，不计通过；完整T19及发布项继续保留未完成。旧红门记录为历史结果；最新源码验证详见a-gate-validation.md。本批尚未commit/push/发布。

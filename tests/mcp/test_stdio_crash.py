@@ -60,7 +60,9 @@ def kill_owner(pid):
     "phase", ["precommit", "accepted", "active", "published", "pending", "blackbox"]
 )
 def test_stdio_owner_crash_is_not_replayed(tmp_path, phase, record_property):
-    pytest.importorskip("mcp", reason="Optional MCP SDK required for actual stdio acceptance")
+    pytest.importorskip(
+        "mcp.client.session", reason="Optional MCP SDK required for actual stdio acceptance"
+    )
     from mcp import ClientSession, StdioServerParameters, stdio_client
     from mcp.shared.exceptions import MCPError
 

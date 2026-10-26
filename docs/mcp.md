@@ -155,3 +155,7 @@ Claude宿主强杀后任务cancelled、子树回收；Kimi服务强杀后宿主�
 宿主记录仍绑定ab3d484安装包，最新源码回归绑定后续参数修订，不能混用版本声明。
 完整宿主失败/实际期限矩阵、其余崩溃排列、容量混合故障和Windows只读ACL等仍按任务表待验。
 这是已推送的实现候选，不是正式版本发布或全验收通过声明。CLI/Skill/DSH仍可作为回退入口。
+
+CI 分别验证无 MCP SDK 的核心安装，以及安装 MCP extra 后的 Ubuntu/Python 3.11、3.13
+和 Windows/Python 3.13；两平台自扫也安装 extra。SDK 依赖测试在核心环境明确跳过，
+不计为 MCP 通过。接线修订及本地回归见[CI记录](../openspec/changes/add-local-cq-mcp/ci-validation.md)。
