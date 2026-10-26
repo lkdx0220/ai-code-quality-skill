@@ -127,12 +127,13 @@ class PosixProcess:
     def __init__(self, argv, cwd, env, domain, lease):
         try:
             self.child = subprocess.Popen(
-                argv,
+                [*argv],
                 cwd=cwd,
                 env=env,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                shell=False,
                 start_new_session=True,
             )
         except OSError:
@@ -201,9 +202,23 @@ def _cleanup(process, threads, lease):
     lease.safe = True
 
 
+def _argument_array(argv):
+    if not isinstance(argv, (list, tuple)):
+        raise ServiceError("INVALID_ARGUMENT", "Core command must be an argument array")
+    values = tuple(argv)
+    if (
+        not values
+        or not values[0]
+        or any(not isinstance(value, str) or "\0" in value for value in values)
+    ):
+        raise ServiceError("INVALID_ARGUMENT", "Core command contains invalid arguments")
+    return values
+
+
 def execute(argv, settings, lease, cancel, timeout, *, cancelled=lambda: False):
     from .store import new_id
 
+    argv = _argument_array(argv)
     if cancel.is_set() or cancelled():
         return {
             "exit_code": None,

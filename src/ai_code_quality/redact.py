@@ -50,7 +50,7 @@ _RULES: list[tuple[re.Pattern[str], str]] = [
         ),
         r"\1" + REDACTED + r"\2",
     ),
-    # 连接串里的密码：postgres://user:pass@host
+    # 数据库连接串中的口令字段（保留协议、用户名和主机）
     (
         re.compile(
             r"\b((?:postgres|postgresql|mysql|mongodb|redis|amqp)://[^:\s/@]+:)[^@\s/\"']+(@)"

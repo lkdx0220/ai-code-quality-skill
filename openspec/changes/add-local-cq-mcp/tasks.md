@@ -72,6 +72,8 @@
 
 ## 2026-10-26 验收增量
 
+- T12/T19/T24 宿主增量（提交 ab3d484 构建包）：Claude Code 2.1.203 与 Kimi Code 1.1.3 原生 MCP 各11次调用，通过200条finding分页、72124字符占位分块、233435字符diff快照、35秒注入响应延迟及真实pytest子树主动取消。另验证Claude宿主强杀后的cancelled，以及Kimi服务强杀后宿主自动重连得到interrupted；未重提扫描，四state最终预留0，旧证据未变。详见host-acceptance-ab3d484.md；35秒为传输等待而非核心计算，完整T19与发布矩阵仍保留未完成。
+
 - T08/T26 子集：新增Linux真实进程强杀测试4/4通过；提交后未spawn及运行中窗口、同state及跨state竞争均覆盖，残留存活时CLEANUP_FAILED，清理后interrupted，同key不重跑。
 - T16 子集：普通UID65534及真实只读权限负控通过；gate历史/当前验证、diff、快照读取均成功，项目41文件及Git状态不变，旧CLI写盘exit4。
 - 证据、首轮失败及未跑边界见`linux-recovery-readonly-validation.md`；产品代码未改，完整T08/T16/T26未勾选通过。
@@ -99,6 +101,12 @@ diff exit0、A门仍因既有blocker/high exit1。完整宿主/发布矩阵仍�
 覆盖率4022/4792=83.9316%；相对控制修复自扫新增0/修复0/仍存在7/豁免1；
 diff exit0、A门因既有blocker/high仍exit1。原报告/冻结包未改，修订候选未再次独立签署。
 r03规格、阶段1原型、核心和服务候选分开记录。核心317项加服务36项为353项历史完整回归；此前故障批次Windows384项及容量两平台12项见各自报告，不与后续重复计数。Windows/Linux构建安装、SDK stdio及三个真实宿主连通性子集不冒充T01–T28全矩阵通过。
+
+## A门收尾（2026-10-26，最新源码状态）
+
+- [x] 两项既有A门阻断定向处理：注释假凭据移除；内部参数数组校验/复制和POSIX显式shell=False。新增12项真实参数边界测试；未改检测规则、阈值或.cq。
+- [x] Windows自扫452通过/12默认跳过；Linux受影响进程/服务/崩溃恢复87通过/1 Windows专用跳过；静态全过。覆盖率4047/4811=84.1197%；diff新增0/消除2/仍存在5/豁免1，diff和A门均exit0。
+- import-linter无契约配置仍skipped，不计通过；完整T19及发布项继续保留未完成。旧红门记录为历史结果；最新源码验证详见a-gate-validation.md。本批尚未commit/push/发布。
 
 2026-10-26控制修复增量：Windows回归398 passed/0 skip；Linux故障/恢复51 passed/0 skip；最终字段及受影响压力子集补验Windows7/Linux10通过。并发审计/同时完成取消/两种写锁读取共4场景连续6轮均通过（24次执行，不是全矩阵六遍）。真实stdio新增pending终态写失败后owner强杀恢复窗口。根因、首轮失败及证据见control-channel-root-cause.md和control-channel-fixes.md。
 

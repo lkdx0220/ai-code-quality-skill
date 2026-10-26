@@ -125,3 +125,9 @@ WHEN 客户端无run_id记忆或state配额满，THEN 可列已有run并分页�
 - AND仅清理本state无关联job的op-*；job预留/幂等键、已存artifact、cursor和其他state保持不变。
 - AND恢复事务失败整体回滚，重试可恢复；崩溃操作不重放、不伪造成功或空结果。
 - AND同key重用和查询不抢执行锁做清理；其他state的操作不隐式打开旧state，旧state下次执行再回收。
+
+### Scenario: 核心子命令仅接纳参数数组
+- GIVEN执行入口接收内部构造的核心子命令
+- THEN仅接纳非空list/tuple，元素均为不含NUL的字符串且可执行文件项非空；在写入执行意图前拒绝其他形状。
+- AND复制参数序列后执行，POSIX显式shell=False；空参数、空格、引号、中文和shell特殊字符作为独立参数原样传递。
+- AND保留原有Job Object/进程组、取消、期限和残留回收语义，不开放调用方任意命令工具。

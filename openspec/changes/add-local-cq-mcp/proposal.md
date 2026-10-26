@@ -2,7 +2,7 @@
 
 - change_id: `add-local-cq-mcp`
 - 日期：2026-10-25（Asia/Shanghai）
-- 状态：核心r03修订后进入服务层施工。九工具、任务/锁/进程域、证据判定、分页/状态容量的首批候选已实现；服务36项回归、SDK九工具链路通过，完整证据见service-implementation.md。T10 skipped最终verdict及T13歧义/未知版本处理已落代码，但不表示全矩阵验收。全量A门仍红；未发布，本候选无新增独立签署。
+- 状态：核心r03与服务候选已实现，九工具、任务/锁/进程域、证据判定、分页/状态容量及后续控制恢复修订均有阶段证据。最新源码A门exit0，Windows自扫452通过/12跳过，见a-gate-validation.md；两个真实宿主的大结果/35秒延迟等待/取消及不同断开场景见host-acceptance-ab3d484.md。尚不表示全矩阵验收；未发布，本候选无新增独立签署。
 - spec_ref: `openspec/changes/add-local-cq-mcp/specs/cq-mcp/spec.md`
 - 主仓：ai-code-quality；参考：dsh-ai-code-quality-lab/dsh-plugin（只读）。
 - 来源基线：source-baseline.json；主仓 HEAD `252ec3cf5bd3ca3024ab8dc0ee7111f6573ccad7`。
