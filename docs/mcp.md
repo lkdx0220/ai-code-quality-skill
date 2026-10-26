@@ -1,4 +1,4 @@
-# 本地 cq MCP（未发布候选）
+# 本地 cq MCP（main 分支候选）
 
 cq MCP 把现有 CLI 接入本地 stdio 客户端。检测能力来自 ruff、mypy、radon、
 vulture、pytest、import-linter、DeepSec；MCP 提供任务生命周期和证据约束，不新增检测算法。
@@ -12,12 +12,11 @@ vulture、pytest、import-linter、DeepSec；MCP 提供任务生命周期和证�
 ## 候选启动
 
 声明的可选依赖为 `mcp==2.3.0`，Windows 另需 `pywin32==312`。核心 CLI 仍无运行时依赖。
-下列为候选构建后的安装/启动方法，不表示已上传 PyPI。Windows/Python 3.13 的
-wheel/sdist 构建、缺 extra 边界和全新 venv 安装回环已经实测；证据见
-`audits/cq-mcp-build-20261025-01/build-install-report.md`。这仍不代表跨平台或真实宿主发布验收通过：
+实现及阶段验收已合入main；MCP尚未单独发布版本，旧v0.5.2标签不包含本功能。
+可安装已通过源码A门的提交；不表示已上传PyPI：
 
 ```text
-python -m pip install "/path/to/ai-code-quality[mcp]"
+python -m pip install "ai-code-quality[mcp] @ git+https://github.com/lkdx0220/ai-code-quality-skill.git@6bfe2a8"
 cq-mcp --project /absolute/trusted-project --state-dir /absolute/cq-state --tool-python /absolute/tool-python
 ```
 
@@ -28,8 +27,11 @@ cq-mcp --project /absolute/trusted-project --state-dir /absolute/cq-state --tool
 缺 extra 时 stderr 提示安装可选依赖并 exit 2，stdout 不输出非协议日志。
 
 客户端应启动该进程并使用 stdio。通用配置示例见 `examples/mcp/server.json`，其中路径需替换。
-当前已用官方 SDK `ClientSession` 完成九工具 stdio 回环；Claude Code、VS Code 等真实宿主的
-配置、长调用期限和断开取消仍待发布验收，不能套用未经验证的宿主时限设置。
+已完成两平台wheel/sdist干净安装与官方SDK九工具stdio子集。Claude Code 2.1.203和
+Kimi Code 1.1.3已通过真实大结果/35秒注入响应等待/取消定向验收，ZCode已通过连通性子集。
+本轮Claude设置MCP_TOOL_TIMEOUT=120000，Kimi设置toolTimeoutMs=120000；
+这是35秒等待夹具的实测配置，不保证覆盖下文gate当前验证的最坏期限。
+Kimi项目级配置还须信任工作区；1.1.3已实测。VS Code未记为通过，不泛称支持所有客户端。
 本机协商协议为 2025-11-25；不能据此宣称支持所有客户端或更新协议。
 
 ## 九个工具
@@ -117,7 +119,8 @@ Linux `~/.cache/cq-mcp/locks`，按规范项目路径哈希；不写项目根，
 doctor 600s；scan 默认 3600s，启动 --max-scan-seconds 范围 1..86400，调用不得超过它。
 输入监视默认 60s，可用 --inputs-timeout-seconds 调至 1..600；gate/diff 核心计算 60s，清理宽限 5s。
 gate 当前验证的默认最坏预算约 125s，最大配置约 665s；客户端至少再留 15s 协议余量。
-超时、取消、未完成产物均不伪造空结果。实际宿主长调用/断开行为仍待验证。
+超时、取消、未完成产物均不伪造空结果。35秒响应等待和部分断开行为已经实测；
+实际超过配置期限的长gate/diff、同步请求取消与完整客户端期限矩阵仍未关闭。
 控制读取使用只读连接，不再抢 SQLite 写锁；控制读写的 busy 等待各至多100ms。
 审计使用 state/calls.lock 的独立线程/OS互斥，锁竞争最多等待50ms，失败有 warning。
 worker 跨实例取消轮询不等待数据库锁，总期限不再被5s轮询挡住。本轮针对 RESERVED/EXCLUSIVE
@@ -143,5 +146,12 @@ Linux Service 强杀恢复及普通 UID 只读权限子集、Claude Code/ZCode/K
 以及 Linux 两项实际 32MiB tmpfs 耗尽；方法和失败轮见
 `openspec/changes/add-local-cq-mcp/fault-recovery-validation.md`（首次暴露两项差距的历史批次）。
 后续修复与写锁/满盘优先回收/终态补记复验见同目录 `control-channel-fixes.md`。
-完整宿主失败/大结果/长调用/断开、其余崩溃排列、容量混合故障和 Windows 只读 ACL 仍待验。
-这是可供独立审核的实现候选，不是公开发布或全验收通过声明。CLI/Skill/DSH 可继续作为回退入口。
+后续Claude/Kimi宿主定向验收见[宿主记录](../openspec/changes/add-local-cq-mcp/host-acceptance-ab3d484.md)：
+200条finding分页、72124字符占位分块、233435字符diff快照、35秒响应延迟及主动取消通过。
+Claude宿主强杀后任务cancelled、子树回收；Kimi服务强杀后宿主自动重连得到interrupted，任务不重跑。
+这些场景不代表两个宿主各自覆盖所有断开组合，35秒也不代表核心计算性能。
+参数边界收尾后的最新源码A门exit0，Windows452通过/12默认跳过、Linux受影响子集87通过/1平台跳过，
+覆盖率84.12%；7工具ok，import-linter无契约配置skipped。见[A门记录](../openspec/changes/add-local-cq-mcp/a-gate-validation.md)。
+宿主记录仍绑定ab3d484安装包，最新源码回归绑定后续参数修订，不能混用版本声明。
+完整宿主失败/实际期限矩阵、其余崩溃排列、容量混合故障和Windows只读ACL等仍按任务表待验。
+这是已推送的实现候选，不是正式版本发布或全验收通过声明。CLI/Skill/DSH仍可作为回退入口。

@@ -1,11 +1,11 @@
-# ai-code-quality（`cq`）· AI Agent Skill
+# ai-code-quality（`cq`）· CLI / Skill / MCP
 
 [![CI](https://github.com/lkdx0220/ai-code-quality-skill/actions/workflows/ci.yml/badge.svg)](https://github.com/lkdx0220/ai-code-quality-skill/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**这是一个 AI Agent Skill**：一份可安装到 DSH / Claude Code / Codex / Cursor 等任何 AI Agent 的
-说明文件（[`agent-adapters/`](agent-adapters/)），外加一个由它驱动的本地 CLI `cq`——
-把 AI 写的代码按可复现的流程，从"能跑但 AI 味重"带到质量门 A 级。
+**面向 Python 项目的本地代码质量工具**：`cq` CLI 聚合扫描、基线对比与质量门；
+[`Skill`](agent-adapters/) 指导 Agent 分批修复；[本地 MCP](docs/mcp.md) 让客户端直接调用同一核心，
+管理扫描任务、读取证据和取消执行。检测由底层开源工具完成，cq 负责编排与聚合。
 
 > **🆕 spec-drift（可选 · v0.2.0→v0.5.0）**：采用 spec 驱动工作流（如 OpenSpec）的项目可启用
 > **防漂移门**：`cq spec-gate` 强制"代码变更必须被 proposal 声明"（`--base/--range` 支持在
@@ -14,13 +14,66 @@
 > **默认关闭**：项目根放 `.specdrift.toml` 才启用，未配置的仓库行为逐项不变（CI 专项回归锁死）。
 > 👉 详见下方 [spec-drift 章节](#spec-driftv020--可选spec-驱动项目的防漂移门)。
 
-## MCP 核心证据扩展（开发中）
+## 本地 MCP（main 分支候选）
 
-本节为未发布工作区功能。`cq-mcp` 服务候选已实现九个本地 stdio 工具，
-使用可选 `[mcp]` extra；现有 CLI 仍可直接使用。启动、调用和验收边界见
-[`docs/mcp.md`](docs/mcp.md)。目前已完成 Windows/Python 3.13 与 Linux/Python 3.11 的
-wheel/sdist 构建、缺 extra 边界、全新 venv 安装和官方 SDK stdio 回环；Claude Code 已
-完成实际宿主子集调用。Linux 进程恢复、VS Code 宿主、长调用/断开和完整发布验收仍待完成。
+MCP 实现及验收记录已合入 `main`，提供 **9 个本地 stdio 工具**：环境体检、异步扫描、
+任务查询/取消、运行发现、finding 分页、gate、diff 和 artifact 分块读取。
+扫描在使用者自己的电脑执行，无需作者提供服务器；目标项目必须可信，分析器和测试可能执行代码。
+MCP 不开放修改源码、自动安装分析器、commit 或 push 工具。
+
+安装包含 MCP 的已验证源码提交（Python ≥ 3.11）：
+
+```bash
+python -m pip install "ai-code-quality[mcp] @ git+https://github.com/lkdx0220/ai-code-quality-skill.git@6bfe2a8"
+cq-mcp --project /absolute/trusted-project --state-dir /absolute/cq-state --tool-python /absolute/tool-python
+```
+
+`--state-dir` 必须在项目树外；`--tool-python` 指向已经安装分析工具的 Python。
+Windows 请换成相应绝对路径。客户端 stdio 配置示例：
+
+```json
+{
+  "mcpServers": {
+    "cq": {
+      "command": "/absolute/mcp-venv/bin/python",
+      "args": [
+        "-m", "ai_code_quality.mcp",
+        "--project", "/absolute/trusted-project",
+        "--state-dir", "/absolute/cq-state",
+        "--tool-python", "/absolute/tool-python"
+      ]
+    }
+  }
+}
+```
+
+Windows 的 `command` 示例为 `C:/path/to/mcp-venv/Scripts/python.exe`。
+先调用 `cq_doctor` 并轮询到完成，再调用 `cq_scan_start`；默认选择五个静态分析 adapter。
+pytest 须同时设置启动选项 `--allow-test-execution` 并在调用中显式选择。
+安装、九工具参数、结果判定和客户端期限配置见[使用指南](docs/mcp.md)。
+
+**当前验收状态**（2026-10-26；测试范围见链接，不表示全发布矩阵完成）：
+
+| 范围 | 结果与证据 |
+|---|---|
+| Windows / Python 3.13 最新源码自扫 | 452 通过、12 默认跳过；A 门 exit 0；覆盖率 84.12% |
+| Linux / Python 3.11 本轮受影响进程/服务/崩溃恢复子集 | 87 通过、1 Windows 专用测试跳过 |
+| Claude Code 2.1.203、Kimi Code 1.1.3 真实宿主 | 大结果分页/分块、35 秒注入响应等待及真实进程取消通过；分别验证宿主强杀清理、服务强杀后重连且任务不重跑 |
+| ZCode | doctor → scan → poll 连通性子集通过 |
+| 构建安装及恢复 | 两平台 wheel/sdist 构建安装与 SDK stdio 子集、进程树回收、SQLite 故障、Linux 受控真实 ENOSPC 已有阶段证据 |
+
+35 秒测试验证客户端等待能力，不代表核心计算耗时或最坏期限验证。
+7 个分析工具正常；import-linter 因本仓无架构契约配置跳过，不计通过。
+详见 [A 门记录](openspec/changes/add-local-cq-mcp/a-gate-validation.md)、
+[宿主验收](openspec/changes/add-local-cq-mcp/host-acceptance-ab3d484.md)与
+[完整任务表](openspec/changes/add-local-cq-mcp/tasks.md)。宿主验收包固定为 `ab3d484`，
+之后的参数边界修订由最新源码回归覆盖，不将旧包当成新包验收。
+
+MCP 尚未单独发布版本；旧 `v0.5.2` 标签不含 MCP，请使用上述提交或源码 `main`。
+完整宿主失败/期限矩阵及其余发布检查仍待完成，VS Code 未记为已通过。
+
+<details>
+<summary>核心证据扩展与 CLI 兼容边界</summary>
 
 ```bash
 cq scan --project . --run-id local-review-01 --inputs-timeout-seconds 120 --format json
@@ -62,6 +115,8 @@ scan 控制台和 gate/diff 输出、保存投影（包括旧 run）应用当前
 不等于所有维度通过。MCP 独立处理 runtime gap/verdict：默认五项正常可为
 `pass_with_gaps`；显式选中的工具缺失为 `cannot_judge`；历史结果不等于当前代码合格。
 
+</details>
+
 ## 它解决什么问题
 
 AI 编程助手让"能跑的代码"变得廉价，也让这类问题变得高频：
@@ -99,7 +154,8 @@ markdown 文本，与代码语言无关）、账本与豁免留痕、报告与�
 
 ## 它如何运作
 
-双形态架构：**SKILL.md 是 Agent 的行为说明书，cq 是确定性的执行核心**。
+**SKILL.md 是 Agent 的工作流说明，cq 是确定性的执行核心，CLI 和 MCP 提供调用入口。**
+下图展示 Skill 驱动 CLI 的路径；MCP 在同一核心外增加协议、异步任务和证据读取约束。
 
 ```
 你："帮我审一下这个项目的代码质量"
@@ -141,9 +197,9 @@ scan ──► triage ──► baseline ──► fix（分批+跑测试）─�
 | 统一 finding schema（sha1 id / severity / category） | 8 个工具的输出变成同一种货币，diff/gate 才有比较基准 |
 | 产物链 `audits/<run_id>/` | 每次扫描都有 summary/findings/report/gate JSON，可复核可对比 |
 | 基线 + diff（行号漂移不算新增） | "修 A 坏 B"当场现形：新增 blocker/high，diff 退出码直接非 0 |
-| gate 质量门（0/1/2/3 退出码） | 工具不完整=2、有 blocker=1、达标=0，AI 和 CI 都能直接判定 |
+| gate 质量门（0/1/2/3/4 退出码） | 达标=0、未达标=1、工具执行错误=2、配置/加载错误=3、产物 IO 错误=4 |
 | 豁免留痕 `.cq/suppressions.json` | 误报不是口头说说：理由、时间、来源 run 全部落盘可评审 |
-| apply 门禁 + 只读默认 | 改代码只有 `fix --apply` 一个入口且需你批准；其余一切只读 |
+| apply 门禁 | 源码修复通过 `fix --apply` 显式授权；扫描写审计产物，MCP 不开放源码修改工具 |
 
 ## 端到端：一次完整的质量修复长什么样
 
@@ -163,8 +219,9 @@ scan ──► triage ──► baseline ──► fix（分批+跑测试）─�
 8. **验收**：`cq gate --target A` → 逐项检查 + local_rating 评级 + 退出码；
    AI 据此向你汇报："还差覆盖率一项，其余全绿。"
 
-本仓库自己的战绩：**73 条 findings → 3 条**（1 条覆盖率债务 + 2 条已留痕豁免的误报），
-五个批次、每批都有测试和 CI 背书——这条流水线首先吃的是自己的狗粮。
+早期自举曾将 **73 条 findings 收敛到 3 条**。加入 MCP 后，最新源码再次自扫：
+**A 门通过，blocker/high 为 0，覆盖率 84.12%**；仍有 5 条 low 提示和 1 条既有豁免，
+不是零告警声明。数字与跳过项见上方验收记录。
 
 ## 30 秒上手
 
@@ -188,6 +245,7 @@ cq gate --run <run_id> --target A   # ③ 质量门：blocker/high/复杂度/覆
 | Codex | 片段追加到项目/用户级 `AGENTS.md` | [`agent-adapters/codex/AGENTS.md.snippet`](agent-adapters/codex/AGENTS.md.snippet) |
 | Cursor | 放进 `.cursor/rules/` | [`agent-adapters/cursor/ai-code-quality.mdc`](agent-adapters/cursor/ai-code-quality.mdc) |
 | 任何 Agent | 直接整份喂给模型 | [`agent-adapters/generic/PROMPT.md`](agent-adapters/generic/PROMPT.md) |
+| 支持本地 stdio 的 MCP 客户端 | 安装 `[mcp]` extra，注册 `cq-mcp` | [`docs/mcp.md`](docs/mcp.md) |
 
 装好后对 Agent 说"帮我审一下这个项目的代码质量"即可；各 harness 安装点与同步命令见
 [`agent-adapters/README.md`](agent-adapters/README.md)。
@@ -195,9 +253,9 @@ cq gate --run <run_id> --target A   # ③ 质量门：blocker/high/复杂度/覆
 ## 设计原则
 
 - **核心 CLI + 薄适配层**：`cq` 不依赖任何 Agent 框架（DSH/Codex/ZCode 各自只需一份说明文件，见 `agent-adapters/`）。
-- **零运行时依赖**：核心包只用 Python 标准库；外部工具全部 subprocess 调用。
+- **核心零运行时依赖**：CLI 只用 Python 标准库；MCP 可选依赖官方 SDK，Windows 另需 pywin32；分析器通过子进程调用。
 - **不许静默 pass**：工具缺失/超时/解析失败 → `skipped` / `timeout` / `error` + 原因，绝不当作通过。
-- **只读**：不改代码、不 commit；所有工具缓存重定向到 `audits/`，目标仓库 `git status` 不变（只多 `audits/`）。
+- **默认不改源码**：扫描产物及分析器缓存写入 `audits/`；MCP 另写项目外 state 和用户级锁，不自动 commit。
 - **扫描范围与工具对齐**：扫描遵循目标仓库根 `.gitignore`（目录名/通配/相对路径的轻量子集，
   支持单段目录名、basename 通配、精确相对路径及其子树；不支持带斜杠的目录模式/通配、
   `!` 否定和嵌套规则）。`respect_gitignore = false` 可关闭此过滤，不代表完整 gitignore 实现。
@@ -437,7 +495,10 @@ finding schema（与交接方案 §6 一致）：
 
 ## 测试与验收
 
-- `python -m pytest tests`：29 个单测（schema/脱敏/目标解析/各 adapter 纯解析），不依赖外部工具。
+- `python -m pytest tests`：核心、CLI、spec-drift 与 MCP 测试。MCP 测试需可选依赖；
+  部分集成测试还需已有分析器、对应操作系统或显式故障/压力测试开关，跳过不计通过。
+- 最新 A 门及平台测试计数见[验收记录](openspec/changes/add-local-cq-mcp/a-gate-validation.md)；
+  真实宿主与发布矩阵分开记录，不用单测通过代替客户端验收。
 - `tests/fixtures/demo-flask-api/`：故意埋了安全/类型/复杂度/死代码/格式/测试问题的 fixture 仓库，
   用于验收"六类问题一次全报出"。
 
@@ -485,7 +546,8 @@ cq spec-gate --mode=hard --range main...feature    # 显式区间（PR 场景）
 - ~~**Phase 3**~~ ✅ `cq fix`（分批修复计划 + 显式 --apply）；DSH `SKILL.md`（已安装
   `~/.dsh/skills/ai-code-quality/`）+ Codex/Claude/Cursor 薄适配文件（见 `agent-adapters/`）。
 - ~~**v0.2.0 · spec-drift 一期**~~ ✅ `cq spec-gate` + `cq waiver`（外部需求单驱动，含兼容性红线回归）。
-- **Phase 4**：SonarCloud/SonarQube 接入、自研确定性 AI slop 规则、可选 AI review、
-  可选 toolkit 插件/MCP。
+- **本地 MCP 候选** ✅ 实现已合入 main：九工具、异步任务、进程域/恢复、证据校验与分页；
+  两个真实宿主定向验收及 A 门通过。正式版本发布以[剩余验收项](openspec/changes/add-local-cq-mcp/tasks.md)为准。
+- **后续**：SonarCloud/SonarQube 接入、自研确定性 AI slop 规则、可选 AI review 与 toolkit 插件。
 - **多语言（未排期）**：Java（Checkstyle/SpotBugs/PMD/JUnit+JaCoCo/ArchUnit adapter 集 + 语言探测
   + Java 符号提取）等，按真实需求立项；spec-gate/waiver/promote 已语言无关可直接用。
