@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **面向 Python 项目的本地代码质量工具**：`cq` CLI 聚合扫描、基线对比与质量门；
-[`Skill`](agent-adapters/) 指导 Agent 分批修复；[本地 MCP](docs/mcp.md) 让客户端直接调用同一核心，
+[`Skill`](https://github.com/lkdx0220/ai-code-quality-skill/tree/main/agent-adapters/) 指导 Agent 分批修复；[本地 MCP](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/docs/mcp.md) 让客户端直接调用同一核心，
 管理扫描任务、读取证据和取消执行。检测由底层开源工具完成，cq 负责编排与聚合。
 
 > **🆕 spec-drift（可选 · v0.2.0→v0.5.0）**：采用 spec 驱动工作流（如 OpenSpec）的项目可启用
@@ -14,7 +14,7 @@
 > **默认关闭**：项目根放 `.specdrift.toml` 才启用，未配置的仓库行为逐项不变（CI 专项回归锁死）。
 > 👉 详见下方 [spec-drift 章节](#spec-driftv020--可选spec-驱动项目的防漂移门)。
 
-## 本地 MCP（0.6.0rc1 公开预发布）
+## 本地 MCP（0.6.0rc2 公开预发布）
 
 MCP 实现及验收记录已合入 `main`，提供 **9 个本地 stdio 工具**：环境体检、异步扫描、
 任务查询/取消、运行发现、finding 分页、gate、diff 和 artifact 分块读取。
@@ -24,7 +24,7 @@ MCP 不开放修改源码、自动安装分析器、commit 或 push 工具。
 从 PyPI 安装固定预发布版本（Python ≥ 3.11）：
 
 ```bash
-python -m pip install "ai-code-quality[mcp]==0.6.0rc1"
+python -m pip install "ai-code-quality[mcp]==0.6.0rc2"
 cq-mcp --project /absolute/trusted-project --state-dir /absolute/cq-state --tool-python /absolute/tool-python
 ```
 
@@ -50,9 +50,9 @@ Windows 请换成相应绝对路径。客户端 stdio 配置示例：
 Windows 的 `command` 示例为 `C:/path/to/mcp-venv/Scripts/python.exe`。
 先调用 `cq_doctor` 并轮询到完成，再调用 `cq_scan_start`；默认选择五个静态分析 adapter。
 pytest 须同时设置启动选项 `--allow-test-execution` 并在调用中显式选择。
-安装、九工具参数、结果判定和客户端期限配置见[使用指南](docs/mcp.md)。
+安装、九工具参数、结果判定和客户端期限配置见[使用指南](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/docs/mcp.md)。
 
-**当前验收状态**（2026-10-26；0.6.0rc1 已公开预发布，公开安装复验完成）：
+**发布与验收范围**（2026-10-26）：0.6.0rc2修正PyPI包内README和版本元数据，功能代码与rc1一致。以下完整功能验收针对rc1，不冒称为rc2重新执行。
 
 | 范围 | 结果与证据 |
 |---|---|
@@ -66,18 +66,18 @@ pytest 须同时设置启动选项 `--allow-test-execution` 并在调用中显�
 
 60 秒场景运行受控核心进程，5 秒场景由客户端超时发起取消；不是自然计算性能基准。
 7 个分析工具正常；import-linter 因本仓无架构契约配置跳过，不计通过。
-详见 [A 门记录](openspec/changes/archive/2026-10-26-add-local-cq-mcp/a-gate-validation.md)、
-[最终候选验收](openspec/changes/archive/2026-10-26-add-local-cq-mcp/final-matrix-0.6.0rc1.md)与
-[完整任务表](openspec/changes/archive/2026-10-26-add-local-cq-mcp/tasks.md)。本轮宿主绑定 `4a349686` 的冻结候选包；
+详见 [A 门记录](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/openspec/changes/archive/2026-10-26-add-local-cq-mcp/a-gate-validation.md)、
+[最终候选验收](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/openspec/changes/archive/2026-10-26-add-local-cq-mcp/final-matrix-0.6.0rc1.md)与
+[完整任务表](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/openspec/changes/archive/2026-10-26-add-local-cq-mcp/tasks.md)。本轮宿主绑定 `4a349686` 的冻结候选包；
 历史 `ab3d484` 验收另存，不混用版本声明。
 
-MCP 已随 [PyPI 0.6.0rc1](https://pypi.org/project/ai-code-quality/0.6.0rc1/) 和
-[GitHub 预发布](https://github.com/lkdx0220/ai-code-quality-skill/releases/tag/v0.6.0rc1) 分发。
+MCP 通过 [PyPI 0.6.0rc2](https://pypi.org/project/ai-code-quality/0.6.0rc2/) 和
+[GitHub 预发布](https://github.com/lkdx0220/ai-code-quality-skill/releases/tag/v0.6.0rc2) 分发。
 两平台公开 wheel/sdist 安装、core-only 与 Windows uvx 启动复验通过；VS Code 未记为已通过。
 
-这是 **`0.6.0rc1` 预发布版**，旧 `v0.5.2` 标签不含 MCP；尚未发布 `0.6.0` 稳定版。
-发布范围、安装与回退见[版本说明](docs/releases/cq-mcp/0.6.0rc1.md)，
-MCP 安装依赖及 pywin32 多组件许可见[第三方许可](docs/third-party.md)。
+这是 **`0.6.0rc2` 预发布版**，旧 `v0.5.2` 标签不含 MCP；尚未发布 `0.6.0` 稳定版。
+发布范围、安装与回退见[版本说明](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/docs/releases/cq-mcp/0.6.0rc2.md)，
+MCP 安装依赖及 pywin32 多组件许可见[第三方许可](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/docs/third-party.md)。
 
 <details>
 <summary>核心证据扩展与 CLI 兼容边界</summary>
@@ -247,15 +247,15 @@ cq gate --run <run_id> --target A   # ③ 质量门：blocker/high/复杂度/覆
 
 | Agent | 接法 | 文件 |
 |---|---|---|
-| DSH | 复制到各 home 的 `skills/ai-code-quality/` | [`agent-adapters/dsh/SKILL.md`](agent-adapters/dsh/SKILL.md) |
+| DSH | 复制到各 home 的 `skills/ai-code-quality/` | [`agent-adapters/dsh/SKILL.md`](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/agent-adapters/dsh/SKILL.md) |
 | Claude Code | 复制到 `~/.claude/skills/ai-code-quality/` | 同上（SKILL.md 通吃） |
-| Codex | 片段追加到项目/用户级 `AGENTS.md` | [`agent-adapters/codex/AGENTS.md.snippet`](agent-adapters/codex/AGENTS.md.snippet) |
-| Cursor | 放进 `.cursor/rules/` | [`agent-adapters/cursor/ai-code-quality.mdc`](agent-adapters/cursor/ai-code-quality.mdc) |
-| 任何 Agent | 直接整份喂给模型 | [`agent-adapters/generic/PROMPT.md`](agent-adapters/generic/PROMPT.md) |
-| 支持本地 stdio 的 MCP 客户端 | 安装 `[mcp]` extra，注册 `cq-mcp` | [`docs/mcp.md`](docs/mcp.md) |
+| Codex | 片段追加到项目/用户级 `AGENTS.md` | [`agent-adapters/codex/AGENTS.md.snippet`](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/agent-adapters/codex/AGENTS.md.snippet) |
+| Cursor | 放进 `.cursor/rules/` | [`agent-adapters/cursor/ai-code-quality.mdc`](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/agent-adapters/cursor/ai-code-quality.mdc) |
+| 任何 Agent | 直接整份喂给模型 | [`agent-adapters/generic/PROMPT.md`](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/agent-adapters/generic/PROMPT.md) |
+| 支持本地 stdio 的 MCP 客户端 | 安装 `[mcp]` extra，注册 `cq-mcp` | [`docs/mcp.md`](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/docs/mcp.md) |
 
 装好后对 Agent 说"帮我审一下这个项目的代码质量"即可；各 harness 安装点与同步命令见
-[`agent-adapters/README.md`](agent-adapters/README.md)。
+[`agent-adapters/README.md`](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/agent-adapters/README.md)。
 
 ## 设计原则
 
@@ -290,7 +290,7 @@ cq gate --run <run_id> --target A   # ③ 质量门：blocker/high/复杂度/覆
 
 cq 自身代码为原创，以 MIT 许可证发布（见 `LICENSE`）。
 可选 MCP 安装另依赖官方 SDK 及 Windows 的 pywin32；其传递依赖和多组件许可另见
-[第三方许可](docs/third-party.md)与随包附带的 `NOTICE`，不能把整个安装环境统称为MIT。
+[第三方许可](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/docs/third-party.md)与随包附带的 `NOTICE`，不能把整个安装环境统称为MIT。
 如果你在报告中引用 cq 的扫描结果，建议同时注明底层工具，例如
 "扫描结果由 ruff / mypy / radon / vulture / pytest / import-linter / DeepSec 产出，cq 聚合"。
 
@@ -506,7 +506,7 @@ finding schema（与交接方案 §6 一致）：
 
 - `python -m pytest tests`：核心、CLI、spec-drift 与 MCP 测试。MCP 测试需可选依赖；
   部分集成测试还需已有分析器、对应操作系统或显式故障/压力测试开关，跳过不计通过。
-- 最新 A 门及平台测试计数见[验收记录](openspec/changes/archive/2026-10-26-add-local-cq-mcp/a-gate-validation.md)；
+- 最新 A 门及平台测试计数见[验收记录](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/openspec/changes/archive/2026-10-26-add-local-cq-mcp/a-gate-validation.md)；
   真实宿主与发布矩阵分开记录，不用单测通过代替客户端验收。
 - `tests/fixtures/demo-flask-api/`：故意埋了安全/类型/复杂度/死代码/格式/测试问题的 fixture 仓库，
   用于验收"六类问题一次全报出"。
@@ -555,8 +555,8 @@ cq spec-gate --mode=hard --range main...feature    # 显式区间（PR 场景）
 - ~~**Phase 3**~~ ✅ `cq fix`（分批修复计划 + 显式 --apply）；DSH `SKILL.md`（已安装
   `~/.dsh/skills/ai-code-quality/`）+ Codex/Claude/Cursor 薄适配文件（见 `agent-adapters/`）。
 - ~~**v0.2.0 · spec-drift 一期**~~ ✅ `cq spec-gate` + `cq waiver`（外部需求单驱动，含兼容性红线回归）。
-- **本地 MCP 0.6.0rc1** ✅ PyPI/GitHub 公开预发布：九工具、异步任务、进程域/恢复、证据校验与分页；
-  双宿主、A门和公开安装复验通过；[现状规格](openspec/specs/cq-mcp/spec.md)。
+- **本地 MCP 0.6.0rc2** ✅ PyPI/GitHub 公开预发布：九工具、异步任务、进程域/恢复、证据校验与分页；
+  双宿主、A门和公开安装复验通过；[现状规格](https://github.com/lkdx0220/ai-code-quality-skill/blob/main/openspec/specs/cq-mcp/spec.md)。
 - **后续**：SonarCloud/SonarQube 接入、自研确定性 AI slop 规则、可选 AI review 与 toolkit 插件。
 - **多语言（未排期）**：Java（Checkstyle/SpotBugs/PMD/JUnit+JaCoCo/ArchUnit adapter 集 + 语言探测
   + Java 符号提取）等，按真实需求立项；spec-gate/waiver/promote 已语言无关可直接用。

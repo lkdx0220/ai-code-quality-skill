@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ai-code-quality"
-version = "0.6.0rc1"
+version = "0.6.0rc2"
 description = "cq - 通用本地代码质量扫描 CLI：统一聚合 ruff/mypy/radon/vulture/pytest/import-linter/deepsec 的 findings"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -18,6 +18,12 @@ classifiers = [
   "Topic :: Software Development :: Quality Assurance",
 ]
 dependencies = []  # 刻意为空：核心 CLI 只用标准库；外部工具由 subprocess 调用
+
+[project.urls]
+Homepage = "https://github.com/lkdx0220/ai-code-quality-skill"
+Repository = "https://github.com/lkdx0220/ai-code-quality-skill"
+Documentation = "https://github.com/lkdx0220/ai-code-quality-skill/blob/main/docs/mcp.md"
+Issues = "https://github.com/lkdx0220/ai-code-quality-skill/issues"
 
 [project.optional-dependencies]
 mcp = ["mcp==2.3.0", "pywin32==312; sys_platform == 'win32'"]

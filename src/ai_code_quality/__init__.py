@@ -7,4 +7,4 @@
 - 适配层：见项目 agent-adapters/ 目录，只是"何时调 cq"的说明书。
 """
 
-__version__ = "0.6.0rc1"
+__version__ = "0.6.0rc2"

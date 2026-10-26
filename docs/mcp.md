@@ -1,4 +1,4 @@
-# 本地 cq MCP（0.6.0rc1 公开预发布）
+# 本地 cq MCP（0.6.0rc2 公开预发布）
 
 cq MCP 把现有 CLI 接入本地 stdio 客户端。检测能力来自 ruff、mypy、radon、
 vulture、pytest、import-linter、DeepSec；MCP 提供任务生命周期和证据约束，不新增检测算法。
@@ -12,18 +12,18 @@ vulture、pytest、import-linter、DeepSec；MCP 提供任务生命周期和证�
 ## 安装与启动
 
 声明的可选依赖为 `mcp==2.3.0`，Windows 另需 `pywin32==312`。核心 CLI 仍无运行时依赖。
-MCP已随[PyPI 0.6.0rc1](https://pypi.org/project/ai-code-quality/0.6.0rc1/)公开预发布，旧v0.5.2标签不包含本功能。
-见[版本说明](releases/cq-mcp/0.6.0rc1.md)
+MCP通过[PyPI 0.6.0rc2](https://pypi.org/project/ai-code-quality/0.6.0rc2/)公开预发布分发，旧v0.5.2标签不包含本功能。
+rc2仅修订包内README和版本元数据，功能代码与rc1一致。见[版本说明](releases/cq-mcp/0.6.0rc2.md)
 及[依赖许可说明](third-party.md)。
 可在独立虚拟环境安装：
 
 ```text
-python -m pip install "ai-code-quality[mcp]==0.6.0rc1"
+python -m pip install "ai-code-quality[mcp]==0.6.0rc2"
 cq-mcp --project /absolute/trusted-project --state-dir /absolute/cq-state --tool-python /absolute/tool-python
 ```
 
 源码环境等价入口为 `python -m ai_code_quality.mcp`（须配置 src 导入路径）。
-也可用 `uvx --from "ai-code-quality[mcp]==0.6.0rc1" cq-mcp` 加同样启动参数；
+也可用 `uvx --from "ai-code-quality[mcp]==0.6.0rc2" cq-mcp` 加同样启动参数；
 Windows公开无缓存启动已实测，首次下载/安装包含在等待中，建议客户端startup timeout至少60s。
 服务解释器应有 MCP extra，`--tool-python` 是已有分析工具所在解释器；服务不自动安装工具。
 优先级：显式参数 > 启动 `CQ_PYTHON` > 项目 cq.toml/.cq.toml > 服务解释器。
