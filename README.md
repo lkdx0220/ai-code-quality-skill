@@ -24,7 +24,7 @@ MCP 不开放修改源码、自动安装分析器、commit 或 push 工具。
 安装包含 MCP 的已验证源码提交（Python ≥ 3.11）：
 
 ```bash
-python -m pip install "ai-code-quality[mcp] @ git+https://github.com/lkdx0220/ai-code-quality-skill.git@6bfe2a8"
+python -m pip install "ai-code-quality[mcp] @ git+https://github.com/lkdx0220/ai-code-quality-skill.git@4a3496860a163955ac4875048e49c4f1cec4a9d6"
 cq-mcp --project /absolute/trusted-project --state-dir /absolute/cq-state --tool-python /absolute/tool-python
 ```
 
@@ -52,26 +52,27 @@ Windows 的 `command` 示例为 `C:/path/to/mcp-venv/Scripts/python.exe`。
 pytest 须同时设置启动选项 `--allow-test-execution` 并在调用中显式选择。
 安装、九工具参数、结果判定和客户端期限配置见[使用指南](docs/mcp.md)。
 
-**当前验收状态**（2026-10-26；测试范围见链接，不表示全发布矩阵完成）：
+**当前验收状态**（2026-10-26；0.6.0rc1 开发验收完成，尚未公开发布）：
 
 | 范围 | 结果与证据 |
 |---|---|
 | Windows / Python 3.13 候选源码自扫 | 452 通过、16 默认/平台跳过；A 门 exit 0；覆盖率 84.08% |
 | Linux / Python 3.11 候选源码完整回归 | 458 通过、10 默认/平台跳过 |
-| Claude Code 2.1.203、Kimi Code 1.1.3 真实宿主 | 大结果分页/分块、35 秒注入响应等待及真实进程取消通过；分别验证宿主强杀清理、服务强杀后重连且任务不重跑 |
+| Claude Code 2.1.203、Kimi Code 1.1.3 真实宿主 | 本候选九工具、真实质量失败/缺工具、大结果分页/分块、60 秒核心截止、5 秒客户端取消及服务强杀重连通过；任务不重跑 |
 | ZCode | doctor → scan → poll 连通性子集通过 |
 | 构建安装及恢复 | 两平台 wheel/sdist 构建安装与 SDK stdio 子集、进程树回收、SQLite 故障、Linux 受控真实 ENOSPC 已有阶段证据 |
 | 0.6.0rc1 候选包 | 两平台 wheel/sdist 四组独立安装，九工具、真实质量失败、缺工具及实际进程取消通过；未当作真实宿主验收 |
+| 权限及容量收尾 | Windows 真实只读 ACL、Linux 普通 UID；两平台混合容量/SQLite 锁、保留旧 state 的迁移及 owner 守卫通过 |
 
-35 秒测试验证客户端等待能力，不代表核心计算耗时或最坏期限验证。
+60 秒场景运行受控核心进程，5 秒场景由客户端超时发起取消；不是自然计算性能基准。
 7 个分析工具正常；import-linter 因本仓无架构契约配置跳过，不计通过。
 详见 [A 门记录](openspec/changes/add-local-cq-mcp/a-gate-validation.md)、
-[宿主验收](openspec/changes/add-local-cq-mcp/host-acceptance-ab3d484.md)与
-[完整任务表](openspec/changes/add-local-cq-mcp/tasks.md)。宿主验收包固定为 `ab3d484`，
-之后的参数边界修订由最新源码回归覆盖，不将旧包当成新包验收。
+[最终候选验收](openspec/changes/add-local-cq-mcp/final-matrix-0.6.0rc1.md)与
+[完整任务表](openspec/changes/add-local-cq-mcp/tasks.md)。本轮宿主绑定 `4a349686` 的冻结候选包；
+历史 `ab3d484` 验收另存，不混用版本声明。
 
 MCP 尚未单独发布版本；旧 `v0.5.2` 标签不含 MCP，请使用上述提交或源码 `main`。
-完整宿主失败/期限矩阵及其余发布检查仍待完成，VS Code 未记为已通过。
+接下来确认发布渠道、公开固定版本安装复验并归档规格；VS Code 未记为已通过。
 
 发布预检使用 **`0.6.0rc1` 候选版本**，避免与旧版 `0.5.2` 的包身份混淆；
 尚未创建该版本的 tag、GitHub Release 或 PyPI 版本。

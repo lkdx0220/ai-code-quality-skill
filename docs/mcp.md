@@ -18,7 +18,7 @@ vulture、pytest、import-linter、DeepSec；MCP 提供任务生命周期和证�
 可安装已通过源码A门的提交；不表示已上传PyPI：
 
 ```text
-python -m pip install "ai-code-quality[mcp] @ git+https://github.com/lkdx0220/ai-code-quality-skill.git@6bfe2a8"
+python -m pip install "ai-code-quality[mcp] @ git+https://github.com/lkdx0220/ai-code-quality-skill.git@4a3496860a163955ac4875048e49c4f1cec4a9d6"
 cq-mcp --project /absolute/trusted-project --state-dir /absolute/cq-state --tool-python /absolute/tool-python
 ```
 
@@ -122,8 +122,8 @@ Linux `~/.cache/cq-mcp/locks`，按规范项目路径哈希；不写项目根，
 doctor 600s；scan 默认 3600s，启动 --max-scan-seconds 范围 1..86400，调用不得超过它。
 输入监视默认 60s，可用 --inputs-timeout-seconds 调至 1..600；gate/diff 核心计算 60s，清理宽限 5s。
 gate 当前验证的默认最坏预算约 125s，最大配置约 665s；客户端至少再留 15s 协议余量。
-超时、取消、未完成产物均不伪造空结果。35秒响应等待和部分断开行为已经实测；
-实际超过配置期限的长gate/diff、同步请求取消与完整客户端期限矩阵仍未关闭。
+超时、取消、未完成产物均不伪造空结果。0.6.0rc1 已在 Claude/Kimi 真实宿主验证
+60s 核心截止、5s 客户端超时取消、服务强杀重连及原 job 不重跑；最大 665s 配置等待未实测。
 控制读取使用只读连接，不再抢 SQLite 写锁；控制读写的 busy 等待各至多100ms。
 审计使用 state/calls.lock 的独立线程/OS互斥，锁竞争最多等待50ms，失败有 warning。
 worker 跨实例取消轮询不等待数据库锁，总期限不再被5s轮询挡住。本轮针对 RESERVED/EXCLUSIVE
@@ -157,9 +157,14 @@ Claude宿主强杀后任务cancelled、子树回收；Kimi服务强杀后宿主�
 覆盖率84.08%；7工具ok，import-linter无契约配置skipped。此前参数修订见[A门记录](../openspec/changes/add-local-cq-mcp/a-gate-validation.md)。
 候选wheel/sdist的两平台四组干净安装均完成SDK九工具、真实ruff质量失败、缺工具cannot_judge和pytest子树取消；
 源码逐文件与wheel一致。该SDK回环不是新的真实宿主验收。
-宿主记录仍绑定ab3d484安装包，最新源码回归绑定后续参数修订，不能混用版本声明。
-完整宿主失败/实际期限矩阵、其余崩溃排列、容量混合故障和Windows只读ACL等仍按任务表待验。
-这是已推送的实现候选，不是正式版本发布或全验收通过声明。CLI/Skill/DSH仍可作为回退入口。
+上述宿主记录绑定历史 ab3d484；本候选的新验收见
+[最终矩阵](../openspec/changes/add-local-cq-mcp/final-matrix-0.6.0rc1.md)：
+Claude Code 2.1.203、Kimi Code 桌面1.1.3.0（wire自报0.0.0）均实际调用九工具，
+覆盖真实质量失败、缺工具、合成大结果、60s核心截止、5s客户端取消及服务强杀恢复。
+Windows真实只读ACL、Linux普通UID只读、两平台混合容量叠加SQLite锁、保留旧state迁移和
+owner守卫也已通过；故障脚本边界与首轮失败完整记录。产品仍固定为4a349686的0.6.0rc1包。
+开发验收完成，发布渠道、公开固定版本安装复验与规格归档尚待进行。
+CLI/Skill/DSH仍可作为回退入口；没有将所有客户端/协议或最大665s等待声明为已验证。
 
 CI 分别验证无 MCP SDK 的核心安装，以及安装 MCP extra 后的 Ubuntu/Python 3.11、3.13
 和 Windows/Python 3.13；两平台自扫也安装 extra。SDK 依赖测试在核心环境明确跳过，

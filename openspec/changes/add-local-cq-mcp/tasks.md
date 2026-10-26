@@ -1,5 +1,16 @@
 # 实施与验收任务（r03 / 服务首批候选）
 
+## 最新状态（2026-10-26，0.6.0rc1）
+
+- [x] T01–T28 已逐条建立运行证据索引，完成本候选开发验收；见[最终矩阵](final-matrix-0.6.0rc1.md)。
+- [x] Claude/Kimi 两真实宿主九工具、真实失败/缺工具、大结果、60s核心截止、5s客户端取消和服务强杀恢复。
+- [x] Windows真实ACL/Linux普通UID只读、两平台混合容量叠加写锁、state迁移与owner守卫、进程边界及可调新鲜度期限。
+- [x] 产品固定为4a349686的冻结包，CI九项全绿；本轮仅验收和文档，没有产品修改或包重建。
+- [ ] 确认发布渠道和最终版本；公开固定版本安装复验后同步规格并归档change。
+
+下方阶段记录保留其当时结果；其中“仍待验/未commit”等历史表述不代表上述最新状态。
+完成范围限最终矩阵注明的配置，不以skip、SDK回环或静态审核替代实际宿主/故障验收。
+
 ## 0. SpecDD
 - [x] 读取仓库、保留源基线；收到用户转交DeepSeek文件及GLM正文的独立审核。
 - [x] 核对源码，逐项处理M01–M13/A1–A3和补充意见，直接修订proposal/design/spec。
@@ -10,13 +21,13 @@
 - [x] Windows机制原型：先挂起再纳入Job，取消/超时/owner强杀均确认进程句柄退出；非产品恢复逻辑验收。
 - [x] WSL Ubuntu进程组原型：正常取消无运行后代；强杀owner后确有存活后代，随后清理。证明恢复阻断的必要性，未实现恢复守卫。
 - [x] 十万条合成清单流式输出14.2MB、汇总126B；仅验证序列化规模，不替代真实核心枚举/新鲜度计时。
-- [ ] SDK稳定版本/许可证/Python/协议、两个真实客户端及输出限制核查；已确认mcp 2.3.0、协议2025-11-25，Claude Code、ZCode及Kimi Code 1.1.3连通性子集通过；许可证及完整宿主输出/期限矩阵仍待核查，VS Code当前Agent通道禁用。
+- [x] SDK版本/许可证/Python/协议与输出限制核查：mcp2.3.0、协议2025-11-25；0.6.0rc1包与依赖许可见release-readiness，Claude/Kimi真实九工具及输出/期限见final-matrix；ZCode仅历史连通性，VS Code未记通过。
 - [x] Windows suspended-create/Job Object、Linux正常清理和强杀后恢复阻断原型；Windows产品路径已测，Linux产品Service真实SIGKILL/同state及跨state残留阻断4/4通过（受控子命令注入，非stdio宿主强杀），见linux-recovery-readonly-validation.md；完整T08仍按矩阵保留。
 - [x] initialize冷启动及异步调度原型；0.6.0rc1两平台四组安装包SDK initialize<5s，既有异步查询/取消回归通过；无SDK核心两平台明确exit2且stdout无日志。见release-readiness-0.6.0rc1.md；不代替完整宿主期限矩阵。
 - [x] 大仓库inputs汇总/流式清单原型：32,000真实文件，9,312,754字节完整清单/743字节摘要，120s配置下逐文件和总摘要均核对通过；不代替产品分页/新鲜度验收。
 - [x] 固定CLI现有行为及来源输入摘要：doctor-before/scan-before与cq-mcp-before-20261025基线已保留，核心修改逐项留痕。
 
-调查时核查本机Claude Code2.1.203、VS Code1.141.2命令可用；后续已补Windows/Linux构建安装、SDK回环及三个真实宿主连通性子集，见阶段记录。完整宿主矩阵及实际大仓库产品验收仍待完成。原型未被计入T01–T28产品验收通过数。
+调查时核查本机Claude Code2.1.203、VS Code1.141.2命令可用；后续构建安装、SDK与宿主结果按各自版本保留，最新配置见final-matrix。原型未被计入T01–T28产品验收通过数。
 
 ## 2. 实施顺序
 - [x] 核心run ID/显式空adapter校验、错误映射、config快照字段、doctor来源修正；214/214回归，含未知adapter旧exit1守卫。
@@ -29,7 +40,7 @@
 - [x] docs/mcp.md、README与通用启动示例更新；候选声明mcp2.3.0/pywin32 312，无本轮安装。
 - [x] 文档、CLI/Skill回退；README、docs/mcp.md和通用启动示例已更新。
 - [x] 构建安装子集：wheel/sdist构建成功；缺MCP extra时明确exit 2；Windows/Python 3.13和Linux/Python 3.11全新venv安装wheel/sdist并完成SDK ClientSession stdio九工具回环。证据见`audits/cq-mcp-build-20261025-01/build-install-report.md`、`audits/cq-mcp-build-20261025-02/build-package-review.md`及`audits/cq-mcp-host-20261025-01/host-and-linux-validation.md`。
-- [ ] 真实宿主验证：Claude Code、ZCode和Kimi Code 1.1.3已完成doctor/scan/poll连通性子集；Kimi版本由用户报告，本地台账和marker复算匹配，见`audits/cq-mcp-host-20261025-01/kimi-validation.md`。VS Code当前Agent通道禁用，未记通过；长gate/diff、宿主期限和完整断开取消矩阵仍待验。
+- [x] 真实宿主验证：本候选Claude Code2.1.203、Kimi Code桌面1.1.3.0完成九工具、失败/缺工具/大结果、长gate/diff、客户端期限和断开取消矩阵，原始stdio核验通过；Kimi wire版本0.0.0另记。ZCode仅历史连通性子集；VS Code未记通过。见final-matrix。
 
 ## 3. 验收矩阵
 
@@ -65,7 +76,7 @@
 | T28 | CQ-MCP-10/11 | Config.snapshot新增字段，rules_version和suppression摘要保存；旧字段缺失明确unknown、不假定默认相同 |
 
 ## 4. 发布
-- [ ] 全矩阵证据齐全，必验不以skip顶替；静态审查不替代运行验收。当前已覆盖Windows/Python 3.13、Linux/Python 3.11构建安装与SDK stdio子集，以及Claude Code、ZCode和Kimi Code 1.1.3宿主连通性子集。
+- [x] 本候选开发矩阵证据完成，T01–T28逐项索引见final-matrix；Windows/Python3.13、Linux/Python3.11安装/故障/权限/容量，Claude/Kimi真实宿主完成。必验不以skip顶替，不声称所有客户端/协议、Windows真实满卷或最大665s宿主等待已测。
 - [x] 0.6.0rc1具体候选的构建内容、许可证、依赖闭包、版本、README/工具面复验通过；内部change记录不入sdist，LICENSE/NOTICE入包。两平台wheel/sdist四组SDK九工具、质量失败/缺工具/取消和45文件来源核对通过，见release-readiness-0.6.0rc1.md。此勾选只覆盖本候选包预检，不关闭完整发布矩阵或批准渠道。
 - [ ] 用户可审阅候选包与发布说明后确认渠道；公开固定版本安装复验与回退说明。
 - [ ] 验收完成后同步现状规格并归档change。
